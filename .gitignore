@@ -48,3 +48,5 @@ htmlcov/
 
 # AI Agent Documentation
 .agent/
+
+bracket_test_output.json
