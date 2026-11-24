@@ -1,0 +1,54 @@
+{
+  "total": 109,
+  "killed": 109,
+  "survived": 0,
+  "score": 100.0,
+  "per_operator": {
+    "check_order_swap": {
+      "kind": "custom",
+      "total": 7,
+      "killed": 7
+    },
+    "not_removal": {
+      "kind": "standard",
+      "total": 10,
+      "killed": 10
+    },
+    "cmp_boundary": {
+      "kind": "standard",
+      "total": 6,
+      "killed": 6
+    },
+    "bool_swap": {
+      "kind": "standard",
+      "total": 7,
+      "killed": 7
+    },
+    "str_mutation": {
+      "kind": "standard",
+      "total": 50,
+      "killed": 50
+    },
+    "capacity_ignore_pending": {
+      "kind": "custom",
+      "total": 1,
+      "killed": 1
+    },
+    "confirmation_flip": {
+      "kind": "custom",
+      "total": 2,
+      "killed": 2
+    },
+    "limit_shift": {
+      "kind": "custom",
+      "total": 6,
+      "killed": 6
+    },
+    "int_shift": {
+      "kind": "standard",
+      "total": 20,
+      "killed": 20
+    }
+  },
+  "survivors": []
+}
