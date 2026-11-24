@@ -1,0 +1,73 @@
+# Team quality gate: runs on every pull request. Every step must pass for the PR to merge.
+# No step is allowed to fail silently: nothing here may mask a failing command.
+# Merge blocking itself is a GitHub setting: see docs/ci-gate.md ("Require status checks").
+name: team-quality-gate
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests-and-coverage:
+    name: tests-and-coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -r requirements-dev.txt
+      - name: Team tests with coverage
+        run: python -m pytest tests/team --cov --cov-report=xml --cov-report=json --cov-report=term-missing
+      - name: Coverage gate for the in-scope business logic
+        # Thresholds are provisional until the first measured run; justify them in docs/ci-gate.md.
+        run: python scripts/scoped_coverage.py --min-statements 90 --min-branches 85
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            coverage.xml
+            coverage.json
+
+  mutation:
+    name: mutation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -r requirements-dev.txt
+      - name: Mutation score gate on the business-rule code
+        # Provisional threshold; justify it from the first full report in docs/ci-gate.md.
+        run: python scripts/mutate_rules.py --only app/models.py:173-191 --only app/blueprints/api.py:579-658 --min-score 70 --out mutation-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: mutation-report.json
+
+  sonar:
+    name: sonar
+    needs: tests-and-coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+      - name: SonarCloud scan, waits for the quality gate and fails if it fails
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: -Dsonar.qualitygate.wait=true

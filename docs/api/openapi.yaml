@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Team registration JSON API (scoreboard)
+  version: "1.0"
+  description: >
+    Contract for the two public JSON endpoints of workflow W1. Limits come from the code
+    (api.py api_register_team) and from the Team model column sizes. Fields marked x-lookup
+    refer to existing data, so length limits do not apply to them. x-trimmed means the server
+    strips whitespace before validating. x-expect tells the test generator what a valid or an
+    invalid input must return. Read by scripts/testdatagen.py.
+servers:
+  - url: http://localhost:5000
+paths:
+  /api/register/validate-code:
+    post:
+      operationId: validateCode
+      summary: Check a tournament registration code
+      x-expect:
+        valid: {status: 200, json: {valid: true}}
+        invalid: {status: 200, json: {valid: false}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+                  example: REG001
+                  x-lookup: true
+                  x-trimmed: true
+      responses:
+        "200": {description: "valid true or false in the body"}
+  /api/register/team:
+    post:
+      operationId: registerTeam
+      summary: Register a team
+      x-expect:
+        valid: {status: 200, json: {success: true}}
+        invalid: {status: 400, json: {success: false}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, team_name, player1, player2]
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+                  example: REG001
+                  x-lookup: true
+                  x-trimmed: true
+                team_name:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                  example: Alpha
+                  x-trimmed: true
+                player1:
+                  type: string
+                  minLength: 1
+                  maxLength: 30
+                  example: Ann
+                  x-trimmed: true
+                player2:
+                  type: string
+                  minLength: 1
+                  maxLength: 30
+                  example: Bob
+                  x-trimmed: true
+                email:
+                  type: string
+                  example: a@b.co
+                  x-trimmed: true
+                phone:
+                  type: string
+                  example: "0300123456"
+                  x-trimmed: true
+      responses:
+        "200": {description: "team created"}
+        "400": {description: "rule or field rejected"}

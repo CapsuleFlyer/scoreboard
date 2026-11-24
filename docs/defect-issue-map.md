@@ -14,3 +14,4 @@
 | DR-10 | [DEFECT] Pinned dependencies have known vulnerabilities | https://github.com/CapsuleFlyest/scoreboard/issues/10 |
 | DR-11 | [DEFECT] `max_teams` set to NULL crashes `can_register()` | https://github.com/CapsuleFlyest/scoreboard/issues/11 |
 | DR-12 | [DEFECT] Registration API is CSRF-exempt and no rate limit was seen | https://github.com/CapsuleFlyest/scoreboard/issues/12 |
+| DR-13 | [DEFECT] Registration API returns 500 for non-string JSON values and a null body | https://github.com/CapsuleFlyest/scoreboard/issues/13 |

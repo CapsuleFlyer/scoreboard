@@ -1,0 +1,3155 @@
+diff --git a/.github/workflows/team-quality-gate.yml b/.github/workflows/team-quality-gate.yml
+new file mode 100644
+index 0000000..540064b
+--- /dev/null
++++ b/.github/workflows/team-quality-gate.yml
+@@ -0,0 +1,73 @@
++# Team quality gate: runs on every pull request. Every step must pass for the PR to merge.
++# No step is allowed to fail silently: nothing here may mask a failing command.
++# Merge blocking itself is a GitHub setting: see docs/ci-gate.md ("Require status checks").
++name: team-quality-gate
++
++on:
++  pull_request:
++
++permissions:
++  contents: read
++
++jobs:
++  tests-and-coverage:
++    name: tests-and-coverage
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.12"
++          cache: pip
++      - name: Install
++        run: python -m pip install -r requirements-dev.txt
++      - name: Team tests with coverage
++        run: python -m pytest tests/team --cov --cov-report=xml --cov-report=json --cov-report=term-missing
++      - name: Coverage gate for the in-scope business logic
++        # Thresholds are provisional until the first measured run; justify them in docs/ci-gate.md.
++        run: python scripts/scoped_coverage.py --min-statements 90 --min-branches 85
++      - uses: actions/upload-artifact@v4
++        with:
++          name: coverage
++          path: |
++            coverage.xml
++            coverage.json
++
++  mutation:
++    name: mutation
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.12"
++          cache: pip
++      - name: Install
++        run: python -m pip install -r requirements-dev.txt
++      - name: Mutation score gate on the business-rule code
++        # Provisional threshold; justify it from the first full report in docs/ci-gate.md.
++        run: python scripts/mutate_rules.py --only app/models.py:173-191 --only app/blueprints/api.py:579-658 --min-score 70 --out mutation-report.json
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: mutation-report
++          path: mutation-report.json
++
++  sonar:
++    name: sonar
++    needs: tests-and-coverage
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          fetch-depth: 0
++      - uses: actions/download-artifact@v4
++        with:
++          name: coverage
++      - name: SonarCloud scan, waits for the quality gate and fails if it fails
++        uses: SonarSource/sonarqube-scan-action@v5
++        env:
++          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
++          SONAR_HOST_URL: https://sonarcloud.io
++        with:
++          args: -Dsonar.qualitygate.wait=true
+diff --git a/docs/ai-use-record.md b/docs/ai-use-record.md
+index 6c06c6a..e246bfc 100644
+--- a/docs/ai-use-record.md
++++ b/docs/ai-use-record.md
+@@ -12,6 +12,7 @@ Rules for this file
+ |---|---|---|---|---|---|---|---|
+ | 1 | 2026-11-19 | Yap | Claude (Sonnet 5.5) via Claude Code | Verify the draft test basis against the source code and run the app's registration behaviour to confirm suspected defects | `docs/test-basis.md` draft: verified requirements FR1-FR12, business rules, roles, findings F1-F8 and new findings N1-N4; pip-audit output (14 unique advisories) | TODO: record what you re-ran or re-read yourself (for example: re-ran the probes on Windows, opened `models.py` `can_register`, confirmed the 404 template line, edited or removed any row you could not explain) | `docs/ai-prompts/` |
+ | 2 | 2026-11-20 | Yap | Claude (Sonnet 5.5) via Claude Code | Explain the project brief components and start-order; draft this AI-use record template | Roadmap of components and marks; this template; SonarQube setup steps | TODO | `docs/ai-prompts/` |
++| 3 | 2026-11-24 | Yap | Claude (Sonnet 5.5) | Write admin/API/sanitizer unit tests, OpenAPI spec and test data generator, API tests driven by the generator, custom-operator mutation script, CI workflow, complexity cross-check script | Patch `iteration-02-...` with the files in `tests/team/`, `scripts/`, `docs/api/`, `docs/ci-gate.md`, `docs/api-testing.md`, `.github/workflows/team-quality-gate.yml`. Sandbox had no network, so the app tests were NOT run by the AI; only the generator, operator tests, sanitizer expectations and mutant compilation were executed | TODO: record what you ran on Windows (pytest result counts, scoped coverage figures), what you read line by line, and what you changed or rejected | `docs/ai-prompts/` |
+ 
+ ## Things the AI output could not verify (so the member must)
+ - Windows install, start and reset commands.
+diff --git a/docs/api-testing.md b/docs/api-testing.md
+new file mode 100644
+index 0000000..63d8483
+--- /dev/null
++++ b/docs/api-testing.md
+@@ -0,0 +1,27 @@
++# API tests and generated test data (area 2)
++
++Files: `docs/api/openapi.yaml` (contract), `scripts/testdatagen.py` (generator), `tests/team/generated/api_cases.json` (committed generator output), `tests/team/test_api_generated.py` (tests that consume the generator), `tests/team/test_api_register.py` (rule-level API tests), `tests/team/test_testdatagen.py` (tests of the generator).
++
++## Commands (PowerShell)
++```
++python scripts/testdatagen.py docs/api/openapi.yaml --out tests/team/generated/api_cases.json
++python -m pytest tests/team/test_api_generated.py tests/team/test_api_register.py tests/team/test_testdatagen.py -q
++```
++
++## Change two constraints, regenerate, show the effect (brief section 2)
++1. `copy tests\team\generated\api_cases.json before.json`
++2. In `docs/api/openapi.yaml` change `team_name.maxLength` from 20 to 10 and `player1.minLength` from 1 to 3.
++3. `python scripts/testdatagen.py docs/api/openapi.yaml --out after.json`
++4. `python scripts/testdatagen.py --diff before.json after.json` lists the removed, added and re-classified values (for example length 21 removed, 11 added; a 2-character player name flips from valid to invalid).
++5. `python -m pytest tests/team/test_api_generated.py -q`: the application still accepts 11-character team names, so the new "above max" cases FAIL. That is the effect: the spec changed, the tests followed, the code did not. Revert the spec (or change `api.py`) afterwards and regenerate.
++`test_committed_generated_file_matches_the_spec` fails if the spec changes and the JSON is not regenerated.
++
++## Coverage criteria used (state in the report which you can defend)
++- Every input of both endpoints has EP classes (valid, empty, blank, missing, wrong type) and 3-point BVA on every length limit.
++- Every documented status code (200, 400; 415 and 405 hand-written) is exercised; every error message branch in `api_register_team` is exercised in `test_api_register.py`.
++- Repeated request (duplicate), read-back of the shared count after success and rejection, and no row written on rejection are asserted.
++
++## Endpoint weaknesses to report (link to the risk register)
++- DR-13 (new, UNCONFIRMED until the strict xfails are run): non-string JSON values and a `null` body crash with 500 instead of 400.
++- DR-04 duplicate names are case-sensitive; DR-06 form and API disagree on required player names; DR-12 the API blueprint is CSRF-exempt and has no rate limit (READ).
++- The tests use Flask's test client. The brief lists pytest with Requests; if the TA wants real HTTP, add a fixture that serves the app on a thread and swap `client.post` for `requests.post`.
+diff --git a/docs/api/openapi.yaml b/docs/api/openapi.yaml
+new file mode 100644
+index 0000000..6457c5d
+--- /dev/null
++++ b/docs/api/openapi.yaml
+@@ -0,0 +1,86 @@
++openapi: 3.0.3
++info:
++  title: Team registration JSON API (scoreboard)
++  version: "1.0"
++  description: >
++    Contract for the two public JSON endpoints of workflow W1. Limits come from the code
++    (api.py api_register_team) and from the Team model column sizes. Fields marked x-lookup
++    refer to existing data, so length limits do not apply to them. x-trimmed means the server
++    strips whitespace before validating. x-expect tells the test generator what a valid or an
++    invalid input must return. Read by scripts/testdatagen.py.
++servers:
++  - url: http://localhost:5000
++paths:
++  /api/register/validate-code:
++    post:
++      operationId: validateCode
++      summary: Check a tournament registration code
++      x-expect:
++        valid: {status: 200, json: {valid: true}}
++        invalid: {status: 200, json: {valid: false}}
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              type: object
++              required: [code]
++              properties:
++                code:
++                  type: string
++                  minLength: 1
++                  example: REG001
++                  x-lookup: true
++                  x-trimmed: true
++      responses:
++        "200": {description: "valid true or false in the body"}
++  /api/register/team:
++    post:
++      operationId: registerTeam
++      summary: Register a team
++      x-expect:
++        valid: {status: 200, json: {success: true}}
++        invalid: {status: 400, json: {success: false}}
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              type: object
++              required: [code, team_name, player1, player2]
++              properties:
++                code:
++                  type: string
++                  minLength: 1
++                  example: REG001
++                  x-lookup: true
++                  x-trimmed: true
++                team_name:
++                  type: string
++                  minLength: 1
++                  maxLength: 20
++                  example: Alpha
++                  x-trimmed: true
++                player1:
++                  type: string
++                  minLength: 1
++                  maxLength: 30
++                  example: Ann
++                  x-trimmed: true
++                player2:
++                  type: string
++                  minLength: 1
++                  maxLength: 30
++                  example: Bob
++                  x-trimmed: true
++                email:
++                  type: string
++                  example: a@b.co
++                  x-trimmed: true
++                phone:
++                  type: string
++                  example: "0300123456"
++                  x-trimmed: true
++      responses:
++        "200": {description: "team created"}
++        "400": {description: "rule or field rejected"}
+diff --git a/docs/ci-gate.md b/docs/ci-gate.md
+new file mode 100644
+index 0000000..40bbd85
+--- /dev/null
++++ b/docs/ci-gate.md
+@@ -0,0 +1,21 @@
++# CI quality gate (area 1)
++
++Workflow: `.github/workflows/team-quality-gate.yml`, runs on every pull request. Three jobs; each is a required status check.
++
++| Job | What it enforces | Threshold (PROVISIONAL) | Where the number must come from |
++|---|---|---|---|
++| `tests-and-coverage` | all `tests/team` tests pass; scoped coverage of the in-scope code | statements >= 90 %, branches >= 85 % | first measured run on your machine; the justification is yours: say why not 100 % (for example DR-03 makes the deadline branch unreachable through normal flows) |
++| `mutation` | mutation score on `models.py` rule code and the API register code | >= 70 % | first full run of `scripts/mutate_rules.py`; set it just under the score you reach after killing the killable survivors, and justify |
++| `sonar` | SonarCloud quality gate (waits for the result) | gate defined in SonarCloud | **TODO ask the TA** whether SonarCloud counts as "SonarQube" |
++
++No step uses a switch that hides failures, and every step's exit code decides the job.
++
++## One-time GitHub setup (cannot be done by a patch)
++1. Repo Settings > Secrets and variables > Actions > new secret `SONAR_TOKEN` (a new token; never paste it in chat or commit it).
++2. SonarCloud: keep "Automatic analysis" off.
++3. Settings > Branches > add a rule for the default branch: "Require a pull request", "Require status checks to pass before merging", select `tests-and-coverage`, `mutation`, `sonar`. Without this the gate does not actually block merging.
++4. Pull requests from a fork have no access to secrets, so `sonar` fails there. Open PRs from a branch inside your own repository.
++
++## Evidence the brief asks for (you produce it; nothing here is pre-made)
++- **Fix PR (fails before, passes after):** suggested: fix DR-05 (`sanitize_team_name` 8 to 20, `sanitize_player_name` 10 to 30). On the PR branch first commit only the change to `tests/team/test_admin_registration.py` that removes the DR-05 xfail marker (CI fails), then commit the fix (CI passes). Link both runs.
++- **Blocked PR:** open a PR that removes an assertion or changes `>=` to `>` in `can_register`; the mutation or coverage job must fail and the PR must show "merging is blocked". Screenshot the PR and link the run. Do not merge it.
+diff --git a/docs/traceability.md b/docs/traceability.md
+new file mode 100644
+index 0000000..f434d36
+--- /dev/null
++++ b/docs/traceability.md
+@@ -0,0 +1,21 @@
++# Traceability matrix (DRAFT: requirement to automated tests)
++
++Status: test names are from the files in `tests/team/`. A cell only counts as covered after you have run the test and it passed (or xfailed for the listed defect). Defect issue numbers: take them from `docs/defect-issue-map.md` (not copied here to avoid errors).
++
++| Requirement | Rule | Tests (file :: name or group) | Defects |
++|---|---|---|---|
++| FR1 code lookup | | `test_register_routes.py` join/tournament-page tests; `test_api_register.py::test_validate_*`; `test_api_generated.py` validateCode cases | |
++| FR2 create team, confirm unless required | 3 | `test_register_routes.py` registration tests; `test_api_register.py::test_register_success_*`, `test_register_waits_for_admin_*` | |
++| FR3 refuse when closed/started/deadline/full | 2 | `test_can_register.py` (decision table, order); `test_api_register.py::test_register_refused_when_rule_2_fails`, `test_rule_2_is_checked_before_field_validation` | DR-03 (deadline), DR-11 |
++| FR4 duplicate name | | `test_register_routes.py`; `test_api_register.py::test_register_duplicate_*`; `test_admin_registration.py::test_manual_add_refuses_duplicate_*` | DR-04 |
++| FR5 conditional fields | 4 | `test_register_routes.py` conditional tests; `test_api_register.py::test_register_requires_email_*`; `test_api_generated.py` | DR-06 |
++| FR6 anonymous blocked | roles | `test_admin_registration.py::test_anonymous_is_redirected_*` (6 routes); `test_sanitizers_auth_models.py::test_login_required_*` | DR-12 (CSRF, to check with tokens) |
++| FR7 confirm | 3 | `test_admin_registration.py::test_confirm_*` | DR-02, DR-09 |
++| FR8 reject | 3 | `test_admin_registration.py::test_reject_*` | DR-02, DR-09 |
++| FR9 check-in toggle | 3 | `test_admin_registration.py::test_checkin_*` | DR-09 |
++| FR10 manual add, full, duplicate | 1 | `test_admin_registration.py::test_manual_add_*` | DR-05, DR-07 |
++| FR11 team must belong to tournament | | `test_admin_registration.py::*_from_another_tournament_is_refused` | |
++| FR12 toggle registration | 2 | `test_admin_registration.py::test_toggle_*` | |
++| Rule 1 boundary (name 1-20, count vs max) | 1 | generated BVA in `test_api_generated.py`; `test_register_routes.py`; `test_manual_add_boundary_*`; sanitizer boundary tests | DR-05 |
++| Shared record (count vs max_teams) | | `test_api_register.py::test_shared_count_*`, `test_pending_teams_use_capacity`; `test_admin_registration.py::test_reject_deletes_*`, `test_manual_add_refuses_when_full_*` | DR-08 |
++| Mutation analysis | all | `scripts/mutate_rules.py` report (to be produced) | |
+diff --git a/requirements-dev.txt b/requirements-dev.txt
+index a0618e9..f69f0e4 100644
+--- a/requirements-dev.txt
++++ b/requirements-dev.txt
+@@ -1,3 +1,4 @@
+ # Tools for our own testing work (not needed to run the app)
+ -r requirements.txt
+ pytest-cov>=5.0
++pyyaml>=6.0
+diff --git a/scripts/cyclomatic.py b/scripts/cyclomatic.py
+new file mode 100644
+index 0000000..f21b213
+--- /dev/null
++++ b/scripts/cyclomatic.py
+@@ -0,0 +1,47 @@
++"""Cyclomatic complexity per function (stdlib only), to CHECK your hand calculation.
++
++Do the control flow graph and V(G) = E - N + 2 by hand first; this script is the cross-check
++you compare with SonarQube. Counting rule (same idea as Sonar): 1 + number of if/elif, for,
++while, except, ternary, comprehension-if, plus one per extra operand of and/or.
++SonarQube reports per file, so compare the sum of the functions of one file with its figure.
++
++    python scripts/cyclomatic.py app/blueprints/register.py
++    python scripts/cyclomatic.py app/models.py --function can_register
++"""
++import ast
++import sys
++
++
++def complexity(fn):
++    score = 1
++    for n in ast.walk(fn):
++        if n is not fn and isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
++            continue
++        if isinstance(n, (ast.If, ast.IfExp, ast.For, ast.While, ast.ExceptHandler, ast.AsyncFor)):
++            score += 1
++        elif isinstance(n, ast.comprehension):
++            score += len(n.ifs)
++        elif isinstance(n, ast.BoolOp):
++            score += len(n.values) - 1
++    return score
++
++
++def main(argv):
++    if not argv:
++        print(__doc__)
++        return 2
++    path = argv[0]
++    only = argv[argv.index("--function") + 1] if "--function" in argv else None
++    tree = ast.parse(open(path, encoding="utf-8").read())
++    total = 0
++    for n in ast.walk(tree):
++        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and (only is None or n.name == only):
++            c = complexity(n)
++            total += c
++            print(f"{n.name:35s} lines {n.lineno}-{n.end_lineno}  V(G) = {c}")
++    print(f"{'sum of functions':35s} {total}")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main(sys.argv[1:]))
+diff --git a/scripts/mutate_rules.py b/scripts/mutate_rules.py
+new file mode 100644
+index 0000000..1bf0568
+--- /dev/null
++++ b/scripts/mutate_rules.py
+@@ -0,0 +1,233 @@
++"""Small AST mutation tester with custom operators for the registration business rules.
++
++Why this exists: mutmut 3 has no plug-in point for custom operators, and the brief asks for at
++least two operators built from our own rules. This script holds both kinds:
++
++  standard   cmp_boundary   >= <-> >, < <-> <=, == <-> !=
++             bool_swap      and <-> or
++             not_removal    `not x` -> `x`
++             int_shift      integer constant +1 / -1
++             str_mutation   text constant gets "XX" appended (shows weak message assertions)
++  custom     limit_shift          rule 1: len(...) compared with a limit, limit +1 / -1
++             confirmation_flip    rule 3: is_confirmed=<expr> gets its `not` toggled
++             capacity_ignore_pending  rule 1/A4: get_registered_team_count() -> get_confirmed_team_count()
++             check_order_swap     rule 2: two neighbouring guard clauses (if ...: return) swap places
++
++Each mutant is written into a throw-away copy of the project, the team tests run against it, and
++the mutant is KILLED if pytest fails (or times out) and SURVIVED if it passes.
++
++    python scripts/mutate_rules.py --list                       # count mutants, run nothing
++    python scripts/mutate_rules.py --min-score 80               # run all, exit 1 below 80 %
++    python scripts/mutate_rules.py --only app/models.py:173-191 --out mutation.json
++    python scripts/mutate_rules.py --limit 40 --seed 1          # random sample
++
++Mutated source is re-printed with ast.unparse; the project files themselves are never touched.
++"""
++import argparse
++import ast
++import copy
++import json
++import random
++import shutil
++import subprocess
++import sys
++import tempfile
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++
++# file -> (first line, last line): the business-rule code (same ranges as scoped_coverage.py)
++DEFAULT_TARGETS = {
++    "app/models.py": (173, 191),
++    "app/blueprints/register.py": (1, 130),
++    "app/blueprints/api.py": (579, 658),
++}
++COPY = ["app", "tests", "scripts", "docs/api", "config.py", "run.py", ".coveragerc"]
++
++CMP_SWAP = {ast.Gt: ast.GtE, ast.GtE: ast.Gt, ast.Lt: ast.LtE, ast.LtE: ast.Lt, ast.Eq: ast.NotEq, ast.NotEq: ast.Eq}
++
++
++def _call_name(node):
++    if isinstance(node, ast.Call):
++        f = node.func
++        return f.id if isinstance(f, ast.Name) else getattr(f, "attr", None)
++    return None
++
++
++def _is_guard(stmt):
++    return (isinstance(stmt, ast.If) and not stmt.orelse and len(stmt.body) == 1
++            and isinstance(stmt.body[0], ast.Return))
++
++
++def sites(tree, lo, hi):
++    """Yield (operator, kind, walk index, variant, line, description) for one module."""
++    nodes = list(ast.walk(tree))
++    docstrings = set()
++    for n in nodes:
++        if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef)) and n.body \
++                and isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant):
++            docstrings.add(id(n.body[0].value))
++    for i, n in enumerate(nodes):
++        line = getattr(n, "lineno", None)
++        if line is None or not (lo <= line <= hi):
++            continue
++        if isinstance(n, ast.Compare) and len(n.ops) == 1:
++            op = type(n.ops[0])
++            if op in CMP_SWAP:
++                yield "cmp_boundary", "standard", i, 0, line, f"{op.__name__} -> {CMP_SWAP[op].__name__}"
++            left, right = n.left, n.comparators[0]
++            if _call_name(left) == "len" and isinstance(right, ast.Constant) and isinstance(right.value, int):
++                for v in (1, 2):
++                    yield "limit_shift", "custom", i, v, line, f"len limit {right.value} -> {right.value + (1 if v == 1 else -1)}"
++        if isinstance(n, ast.BoolOp):
++            yield "bool_swap", "standard", i, 0, line, "And <-> Or"
++        if isinstance(n, ast.UnaryOp) and isinstance(n.op, ast.Not):
++            yield "not_removal", "standard", i, 0, line, "remove not"
++        if isinstance(n, ast.Constant) and type(n.value) is int and id(n) not in docstrings:
++            for v in (1, 2):
++                yield "int_shift", "standard", i, v, line, f"{n.value} -> {n.value + (1 if v == 1 else -1)}"
++        if isinstance(n, ast.Constant) and isinstance(n.value, str) and len(n.value) > 3 and id(n) not in docstrings:
++            yield "str_mutation", "standard", i, 0, line, f"text {n.value[:25]!r} + XX"
++        if isinstance(n, ast.keyword) and n.arg == "is_confirmed":
++            yield "confirmation_flip", "custom", i, 0, line, "toggle `not` on is_confirmed"
++        if _call_name(n) == "get_registered_team_count":
++            yield "capacity_ignore_pending", "custom", i, 0, line, "registered count -> confirmed count"
++        if isinstance(n, (ast.FunctionDef, ast.Module)):
++            body = n.body
++            for k in range(len(body) - 1):
++                if _is_guard(body[k]) and _is_guard(body[k + 1]) and lo <= body[k].lineno <= hi:
++                    yield "check_order_swap", "custom", i, k, body[k].lineno, f"swap guards at lines {body[k].lineno} and {body[k + 1].lineno}"
++
++
++def apply(tree, op, index, variant):
++    """Return a mutated deep copy of tree (the walk index identifies the node)."""
++    t = copy.deepcopy(tree)
++    nodes = list(ast.walk(t))
++    n = nodes[index]
++    if op == "cmp_boundary":
++        n.ops[0] = CMP_SWAP[type(n.ops[0])]()
++    elif op == "limit_shift":
++        c = n.comparators[0]
++        c.value += 1 if variant == 1 else -1
++    elif op == "bool_swap":
++        n.op = ast.Or() if isinstance(n.op, ast.And) else ast.And()
++    elif op == "not_removal":
++        parent = next(p for p in nodes for f in ast.iter_child_nodes(p) if f is n)
++        for field, value in ast.iter_fields(parent):
++            if value is n:
++                setattr(parent, field, n.operand)
++            elif isinstance(value, list):
++                parent_list = value
++                for j, item in enumerate(parent_list):
++                    if item is n:
++                        parent_list[j] = n.operand
++    elif op == "int_shift":
++        n.value += 1 if variant == 1 else -1
++    elif op == "str_mutation":
++        n.value = n.value + "XX"
++    elif op == "confirmation_flip":
++        v = n.value
++        n.value = v.operand if isinstance(v, ast.UnaryOp) and isinstance(v.op, ast.Not) else ast.UnaryOp(ast.Not(), v)
++    elif op == "capacity_ignore_pending":
++        n.func.attr = "get_confirmed_team_count"
++    elif op == "check_order_swap":
++        n.body[variant], n.body[variant + 1] = n.body[variant + 1], n.body[variant]
++    ast.fix_missing_locations(t)
++    return t
++
++
++def enumerate_mutants(targets):
++    out = []
++    for rel, (lo, hi) in targets.items():
++        tree = ast.parse((ROOT / rel).read_text(encoding="utf-8"))
++        for op, kind, idx, variant, line, desc in sites(tree, lo, hi):
++            out.append({"file": rel, "operator": op, "kind": kind, "index": idx, "variant": variant,
++                        "line": line, "description": desc})
++    for number, m in enumerate(out, 1):
++        m["id"] = number
++    return out
++
++
++def run_pytest(workdir, timeout):
++    try:
++        r = subprocess.run([sys.executable, "-m", "pytest", "tests/team", "-x", "-q", "-p", "no:cacheprovider",
++                            "--no-header"], cwd=workdir, capture_output=True, text=True, timeout=timeout)
++        return r.returncode, r.stdout[-400:]
++    except subprocess.TimeoutExpired:
++        return -1, "timeout"
++
++
++def main(argv=None):
++    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    ap.add_argument("--only", action="append", help="file[:first-last], repeatable; default is the rule code")
++    ap.add_argument("--list", action="store_true")
++    ap.add_argument("--limit", type=int)
++    ap.add_argument("--seed", type=int, default=1)
++    ap.add_argument("--timeout", type=int, default=180)
++    ap.add_argument("--min-score", type=float, default=0.0)
++    ap.add_argument("--out", default="mutation-report.json")
++    args = ap.parse_args(argv)
++
++    targets = DEFAULT_TARGETS
++    if args.only:
++        targets = {}
++        for spec in args.only:
++            f, _, r = spec.partition(":")
++            lo, hi = (int(x) for x in r.split("-")) if r else (1, 10**6)
++            targets[f] = (lo, hi)
++    mutants = enumerate_mutants(targets)
++    if args.limit and args.limit < len(mutants):
++        mutants = sorted(random.Random(args.seed).sample(mutants, args.limit), key=lambda m: m["id"])
++    by_op = {}
++    for m in mutants:
++        by_op[m["operator"]] = by_op.get(m["operator"], 0) + 1
++    print(f"{len(mutants)} mutants: " + ", ".join(f"{k}={v}" for k, v in sorted(by_op.items())))
++    if args.list:
++        return 0
++
++    tmp = Path(tempfile.mkdtemp(prefix="mutants-"))
++    try:
++        for item in COPY:
++            src = ROOT / item
++            if src.exists():
++                dst = tmp / item
++                dst.parent.mkdir(parents=True, exist_ok=True)
++                shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")) if src.is_dir() else shutil.copy2(src, dst)
++        code, tail = run_pytest(tmp, args.timeout * 3)
++        if code != 0:
++            print("The unmutated tests do not pass, so mutation results would be meaningless:\n" + tail)
++            return 2
++        cache = {}
++        results = []
++        for m in mutants:
++            path = tmp / m["file"]
++            if m["file"] not in cache:
++                cache[m["file"]] = (ROOT / m["file"]).read_text(encoding="utf-8")
++            tree = ast.parse(cache[m["file"]])
++            path.write_text(ast.unparse(apply(tree, m["operator"], m["index"], m["variant"])) + "\n", encoding="utf-8")
++            code, tail = run_pytest(tmp, args.timeout)
++            m["status"] = "survived" if code == 0 else "killed"
++            results.append(m)
++            path.write_text(cache[m["file"]], encoding="utf-8")
++            print(f"[{m['id']:3d}] {m['status']:8s} {m['operator']:24s} {m['file']}:{m['line']} {m['description']}")
++    finally:
++        shutil.rmtree(tmp, ignore_errors=True)
++
++    killed = sum(1 for m in results if m["status"] == "killed")
++    score = 100 * killed / len(results) if results else 100.0
++    summary = {"total": len(results), "killed": killed, "survived": len(results) - killed, "score": round(score, 1),
++               "per_operator": {}, "survivors": [m for m in results if m["status"] == "survived"]}
++    for m in results:
++        d = summary["per_operator"].setdefault(m["operator"], {"kind": m["kind"], "total": 0, "killed": 0})
++        d["total"] += 1
++        d["killed"] += m["status"] == "killed"
++    Path(args.out).write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
++    print(f"\nmutation score {score:.1f}% ({killed}/{len(results)} killed); report in {args.out}")
++    if score < args.min_score:
++        print(f"FAIL: below the threshold of {args.min_score}%")
++        return 1
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/scripts/scoped_coverage.py b/scripts/scoped_coverage.py
+index 16ee340..8c36a7a 100644
+--- a/scripts/scoped_coverage.py
++++ b/scripts/scoped_coverage.py
+@@ -1,89 +1,101 @@
+-"""Report statement and branch coverage for the in-scope business logic only.
+-
+-coverage.py reports per file, but our scope is specific functions inside larger files
+-(docs/test-basis.md section 3). This script reads coverage.json and counts only the
+-line ranges listed in SCOPE below.
+-
+-Usage (from the repo root):
+-    python -m pytest tests/team --cov --cov-report=json
+-    python scripts/scoped_coverage.py            # prints the table, exit code 1 if below 100%
+-    python scripts/scoped_coverage.py --list     # also lists every uncovered line and branch
+-
+-If code moves, update SCOPE. The line ranges are function boundaries, taken from the source.
+-"""
+-import json
+-import sys
+-from pathlib import Path
+-
+-REPORT = Path("coverage.json")
+-
+-# file -> list of (first line, last line, label)
+-SCOPE = {
+-    "app/blueprints/register.py": [(1, 130, "whole file: public registration routes")],
+-    "app/blueprints/admin.py": [
+-        (381, 386, "admin_tournament_registrations"),
+-        (391, 405, "admin_confirm_team"),
+-        (410, 447, "admin_add_team_to_tournament"),
+-        (452, 468, "admin_reject_team"),
+-        (473, 482, "admin_checkin_team"),
+-        (487, 501, "admin_toggle_registration"),
+-    ],
+-    "app/blueprints/api.py": [
+-        (579, 595, "api_validate_code"),
+-        (599, 658, "api_register_team"),
+-    ],
+-    "app/models.py": [
+-        (114, 125, "Team.to_dict"),
+-        (173, 191, "registered/confirmed counts and can_register"),
+-        (215, 230, "Tournament.to_public_dict"),
+-    ],
+-    "app/utils.py": [
+-        (38, 55, "sanitize_team_name"),
+-        (58, 74, "sanitize_player_name"),
+-    ],
+-    "app/blueprints/auth.py": [(19, 26, "login_required")],
+-}
+-
+-
+-def in_ranges(line, ranges):
+-    return any(a <= line <= b for a, b, _ in ranges)
+-
+-
+-def main():
+-    show_list = "--list" in sys.argv
+-    if not REPORT.exists():
+-        print("coverage.json not found. Run: python -m pytest tests/team --cov --cov-report=json")
+-        return 2
+-    files = json.loads(REPORT.read_text(encoding="utf-8"))["files"]
+-
+-    total_s = cov_s = total_b = cov_b = 0
+-    print(f"{'file':32s} {'stmts':>6s} {'miss':>5s} {'branches':>9s} {'miss':>5s}")
+-    uncovered = []
+-    for path, ranges in SCOPE.items():
+-        key = path if path in files else path.replace("/", "\\")
+-        data = files[key]
+-        executed = [l for l in data["executed_lines"] if in_ranges(l, ranges)]
+-        missing = [l for l in data["missing_lines"] if in_ranges(l, ranges)]
+-        ex_br = [b for b in data.get("executed_branches", []) if in_ranges(b[0], ranges)]
+-        mi_br = [b for b in data.get("missing_branches", []) if in_ranges(b[0], ranges)]
+-        s, ms = len(executed) + len(missing), len(missing)
+-        b, mb = len(ex_br) + len(mi_br), len(mi_br)
+-        total_s += s
+-        cov_s += s - ms
+-        total_b += b
+-        cov_b += b - mb
+-        print(f"{path:32s} {s:6d} {ms:5d} {b:9d} {mb:5d}")
+-        uncovered += [(path, "line", l) for l in missing] + [(path, "branch", tuple(x)) for x in mi_br]
+-
+-    pct_s = 100 * cov_s / total_s if total_s else 100
+-    pct_b = 100 * cov_b / total_b if total_b else 100
+-    print(f"\nIn-scope statements: {cov_s}/{total_s} = {pct_s:.1f}%")
+-    print(f"In-scope branches:   {cov_b}/{total_b} = {pct_b:.1f}%")
+-    if show_list:
+-        for path, kind, what in uncovered:
+-            print(f"  uncovered {kind}: {path}:{what}")
+-    return 0 if not uncovered else 1
+-
+-
+-if __name__ == "__main__":
+-    sys.exit(main())
++"""Report statement and branch coverage for the in-scope business logic only.
++
++coverage.py reports per file, but our scope is specific functions inside larger files
++(docs/test-basis.md section 3). This script reads coverage.json and counts only the
++line ranges listed in SCOPE below.
++
++Gate use (CI): --min-statements 90 --min-branches 85 exits 1 only when a percentage is below
++its minimum. Without --min-* flags any uncovered line fails (the 100 % target).
++
++Usage (from the repo root):
++    python -m pytest tests/team --cov --cov-report=json
++    python scripts/scoped_coverage.py            # prints the table, exit code 1 if below 100%
++    python scripts/scoped_coverage.py --list     # also lists every uncovered line and branch
++
++If code moves, update SCOPE. The line ranges are function boundaries, taken from the source.
++"""
++import json
++import sys
++from pathlib import Path
++
++REPORT = Path("coverage.json")
++
++# file -> list of (first line, last line, label)
++SCOPE = {
++    "app/blueprints/register.py": [(1, 130, "whole file: public registration routes")],
++    "app/blueprints/admin.py": [
++        (381, 386, "admin_tournament_registrations"),
++        (391, 405, "admin_confirm_team"),
++        (410, 447, "admin_add_team_to_tournament"),
++        (452, 468, "admin_reject_team"),
++        (473, 482, "admin_checkin_team"),
++        (487, 501, "admin_toggle_registration"),
++    ],
++    "app/blueprints/api.py": [
++        (579, 595, "api_validate_code"),
++        (599, 658, "api_register_team"),
++    ],
++    "app/models.py": [
++        (114, 125, "Team.to_dict"),
++        (173, 191, "registered/confirmed counts and can_register"),
++        (215, 230, "Tournament.to_public_dict"),
++    ],
++    "app/utils.py": [
++        (38, 55, "sanitize_team_name"),
++        (58, 74, "sanitize_player_name"),
++    ],
++    "app/blueprints/auth.py": [(19, 26, "login_required")],
++}
++
++
++def in_ranges(line, ranges):
++    return any(a <= line <= b for a, b, _ in ranges)
++
++
++def _arg(name):
++    return float(sys.argv[sys.argv.index(name) + 1]) if name in sys.argv else None
++
++
++def main():
++    show_list = "--list" in sys.argv
++    min_s, min_b = _arg("--min-statements"), _arg("--min-branches")
++    if not REPORT.exists():
++        print("coverage.json not found. Run: python -m pytest tests/team --cov --cov-report=json")
++        return 2
++    files = json.loads(REPORT.read_text(encoding="utf-8"))["files"]
++
++    total_s = cov_s = total_b = cov_b = 0
++    print(f"{'file':32s} {'stmts':>6s} {'miss':>5s} {'branches':>9s} {'miss':>5s}")
++    uncovered = []
++    for path, ranges in SCOPE.items():
++        key = path if path in files else path.replace("/", "\\")
++        data = files[key]
++        executed = [l for l in data["executed_lines"] if in_ranges(l, ranges)]
++        missing = [l for l in data["missing_lines"] if in_ranges(l, ranges)]
++        ex_br = [b for b in data.get("executed_branches", []) if in_ranges(b[0], ranges)]
++        mi_br = [b for b in data.get("missing_branches", []) if in_ranges(b[0], ranges)]
++        s, ms = len(executed) + len(missing), len(missing)
++        b, mb = len(ex_br) + len(mi_br), len(mi_br)
++        total_s += s
++        cov_s += s - ms
++        total_b += b
++        cov_b += b - mb
++        print(f"{path:32s} {s:6d} {ms:5d} {b:9d} {mb:5d}")
++        uncovered += [(path, "line", l) for l in missing] + [(path, "branch", tuple(x)) for x in mi_br]
++
++    pct_s = 100 * cov_s / total_s if total_s else 100
++    pct_b = 100 * cov_b / total_b if total_b else 100
++    print(f"\nIn-scope statements: {cov_s}/{total_s} = {pct_s:.1f}%")
++    print(f"In-scope branches:   {cov_b}/{total_b} = {pct_b:.1f}%")
++    if show_list:
++        for path, kind, what in uncovered:
++            print(f"  uncovered {kind}: {path}:{what}")
++    if min_s is not None or min_b is not None:
++        ok = pct_s >= (min_s or 0) and pct_b >= (min_b or 0)
++        print(f"Gate: statements >= {min_s}%, branches >= {min_b}% -> {'PASS' if ok else 'FAIL'}")
++        return 0 if ok else 1
++    return 0 if not uncovered else 1
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/scripts/testdatagen.py b/scripts/testdatagen.py
+new file mode 100644
+index 0000000..24cf1e4
+--- /dev/null
++++ b/scripts/testdatagen.py
+@@ -0,0 +1,231 @@
++"""Test data generator: reads an OpenAPI 3 spec and produces equivalence classes (EP) and
++3-point boundary values (BVA) for every JSON request field.
++
++How the cases are derived (one invalid value per case, every other field stays valid):
++  required field      -> class "missing" (invalid) and "valid"
++  string, min/maxLength -> BVA: limit-1, limit, limit+1 for each limit (length 0 is skipped
++                         below the minimum 0), plus "blank" (whitespace only) when x-trimmed
++  integer, minimum/maximum -> BVA: limit-1, limit, limit+1 for each limit
++  enum                -> each member (valid) and one value outside the enum (invalid)
++  any type            -> wrong types ("wrong_type_integer", "wrong_type_null")
++  x-lookup            -> refers to existing data: only unknown value, blank, wrong type
++A value is valid when it satisfies the schema. x-expect on the operation gives the status and
++the JSON subset to assert for valid and for invalid requests.
++
++Usage:
++    python scripts/testdatagen.py docs/api/openapi.yaml                 # print a summary
++    python scripts/testdatagen.py docs/api/openapi.yaml --out cases.json
++    python scripts/testdatagen.py --diff old.json new.json              # show what changed
++"""
++import argparse
++import copy
++import json
++import sys
++from pathlib import Path
++
++import yaml
++
++
++def load_spec(path):
++    return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
++
++
++def _json_schema(operation):
++    return operation["requestBody"]["content"]["application/json"]["schema"]
++
++
++def _text(length, example=""):
++    """A string of exactly `length` characters that survives strip() and is not whitespace."""
++    if length <= 0:
++        return ""
++    base = (example or "x")
++    return (base * (length // len(base) + 1))[:length]
++
++
++def _string_values(name, prop, example):
++    """Yield (value, class label, is_valid) for a string property."""
++    lo = prop.get("minLength")
++    hi = prop.get("maxLength")
++    mid = None
++    if lo is not None and hi is not None:
++        mid = (lo + hi) // 2
++    elif lo is not None:
++        mid = lo + 5
++    elif hi is not None:
++        mid = max(1, hi // 2)
++    if mid is not None:
++        yield _text(mid, "A"), "valid_mid", True
++    if lo is not None:
++        for n, label in ((lo - 1, "below_min"), (lo, "at_min"), (lo + 1, "above_min")):
++            if n < 0:
++                continue
++            yield _text(n, "A"), f"bva_{label}", n >= lo and (hi is None or n <= hi)
++    if hi is not None:
++        for n, label in ((hi - 1, "below_max"), (hi, "at_max"), (hi + 1, "above_max")):
++            if n < 0:
++                continue
++            yield _text(n, "A"), f"bva_{label}", (lo is None or n >= lo) and n <= hi
++    if prop.get("x-trimmed") and (lo or 0) >= 1:
++        yield "   ", "blank", False
++
++
++def _integer_values(prop):
++    lo, hi = prop.get("minimum"), prop.get("maximum")
++    if lo is not None and hi is not None:
++        yield (lo + hi) // 2, "valid_mid", True
++    for limit, kind in ((lo, "min"), (hi, "max")):
++        if limit is None:
++            continue
++        for n, label in ((limit - 1, f"below_{kind}"), (limit, f"at_{kind}"), (limit + 1, f"above_{kind}")):
++            ok = (lo is None or n >= lo) and (hi is None or n <= hi)
++            yield n, f"bva_{label}", ok
++
++
++def field_cases(name, prop, required):
++    """All (value, class, valid) candidates for one field. Value MISSING means omit the key."""
++    out = []
++    typ = prop.get("type")
++    example = prop.get("example")
++    if prop.get("x-lookup"):
++        out.append((example, "valid_known", True))
++        out.append(("ZZZZ99", "unknown", False))
++        out.append(("   ", "blank", False))
++    elif typ == "string":
++        if "enum" in prop:
++            out += [(v, "enum_member", True) for v in prop["enum"]]
++            out.append(("not-in-enum", "enum_outside", False))
++        else:
++            if prop.get("minLength") is None and prop.get("maxLength") is None:
++                out.append((example, "valid", True))
++                out.append(("", "empty_optional", True))
++            out += list(_string_values(name, prop, example))
++    elif typ == "integer":
++        out += list(_integer_values(prop))
++    elif typ == "boolean":
++        out += [(True, "valid_true", True), (False, "valid_false", True)]
++    if not required:
++        out.append((MISSING, "optional_omitted", True))
++    else:
++        out.append((MISSING, "missing_required", False))
++    if typ == "string":
++        out.append((12345, "wrong_type_integer", False))
++    elif typ in ("integer", "boolean"):
++        out.append(("text", "wrong_type_string", False))
++    out.append((None, "wrong_type_null", False))
++    return out
++
++
++class _Missing:
++    def __repr__(self):
++        return "MISSING"
++
++
++MISSING = _Missing()
++
++
++def generate(spec):
++    """Return a list of case dicts, sorted and de-duplicated, for every JSON operation."""
++    cases = []
++    for path, methods in spec["paths"].items():
++        for method, op in methods.items():
++            if "requestBody" not in op:
++                continue
++            schema = _json_schema(op)
++            props = schema["properties"]
++            required = set(schema.get("required", []))
++            base = {k: v.get("example") for k, v in props.items() if k in required}
++            expect = op.get("x-expect", {})
++            seen = {}
++            for name, prop in props.items():
++                for value, label, valid in field_cases(name, prop, name in required):
++                    key = (name, "MISSING" if value is MISSING else json.dumps(value))
++                    if key in seen:
++                        seen[key]["class"] += "+" + label
++                        continue
++                    body = copy.deepcopy(base)
++                    if value is MISSING:
++                        body.pop(name, None)
++                    else:
++                        body[name] = value
++                    case = {
++                        "operation": op.get("operationId", f"{method}_{path}"),
++                        "method": method.upper(),
++                        "path": path,
++                        "field": name,
++                        "class": label,
++                        "valid": valid,
++                        "value": None if value is MISSING else value,
++                        "omitted": value is MISSING,
++                        "body": body,
++                        "expect": expect.get("valid" if valid else "invalid", {}),
++                    }
++                    case["id"] = f"{case['operation']}:{name}:{label}:{len(seen)}"
++                    seen[key] = case
++                    cases.append(case)
++    return cases
++
++
++def case_id(c):
++    return c["id"].replace("+", "_")
++
++
++def summarise(cases):
++    lines = []
++    by_op = {}
++    for c in cases:
++        by_op.setdefault(c["operation"], []).append(c)
++    for op, items in by_op.items():
++        valid = sum(1 for c in items if c["valid"])
++        lines.append(f"{op}: {len(items)} cases ({valid} valid, {len(items) - valid} invalid)")
++        fields = {}
++        for c in items:
++            fields.setdefault(c["field"], []).append(c)
++        for f, fc in fields.items():
++            lens = sorted({len(c["value"]) for c in fc if isinstance(c["value"], str) and c["class"].startswith(("bva", "valid_mid"))})
++            lines.append(f"  {f}: {len(fc)} cases" + (f", string lengths {lens}" if lens else ""))
++    return "\n".join(lines)
++
++
++def diff(old, new):
++    key = lambda c: (c["operation"], c["field"], json.dumps(c["value"], sort_keys=True), c["omitted"])
++    o = {key(c): c for c in old}
++    n = {key(c): c for c in new}
++    lines = []
++    for k in sorted(set(n) - set(o), key=str):
++        c = n[k]
++        lines.append(f"+ {c['operation']}.{c['field']} {c['class']} valid={c['valid']} len={_len(c)}")
++    for k in sorted(set(o) - set(n), key=str):
++        c = o[k]
++        lines.append(f"- {c['operation']}.{c['field']} {c['class']} valid={c['valid']} len={_len(c)}")
++    for k in sorted(set(o) & set(n), key=str):
++        if o[k]["valid"] != n[k]["valid"]:
++            lines.append(f"~ {n[k]['operation']}.{n[k]['field']} len={_len(n[k])} valid {o[k]['valid']} -> {n[k]['valid']}")
++    return lines
++
++
++def _len(c):
++    return len(c["value"]) if isinstance(c["value"], str) else c["value"]
++
++
++def main(argv=None):
++    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    ap.add_argument("spec", nargs="?")
++    ap.add_argument("--out")
++    ap.add_argument("--diff", nargs=2, metavar=("OLD", "NEW"))
++    args = ap.parse_args(argv)
++    if args.diff:
++        old, new = (json.loads(Path(p).read_text(encoding="utf-8")) for p in args.diff)
++        lines = diff(old, new)
++        print("\n".join(lines) if lines else "no differences")
++        return 0
++    if not args.spec:
++        ap.error("spec path required")
++    cases = generate(load_spec(args.spec))
++    if args.out:
++        Path(args.out).write_text(json.dumps(cases, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++    print(summarise(cases))
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/tests/team/generated/api_cases.json b/tests/team/generated/api_cases.json
+new file mode 100644
+index 0000000..94d3524
+--- /dev/null
++++ b/tests/team/generated/api_cases.json
+@@ -0,0 +1,1251 @@
++[
++  {
++    "body": {
++      "code": "REG001"
++    },
++    "class": "valid_known",
++    "expect": {
++      "json": {
++        "valid": true
++      },
++      "status": 200
++    },
++    "field": "code",
++    "id": "validateCode:code:valid_known:0",
++    "method": "POST",
++    "omitted": false,
++    "operation": "validateCode",
++    "path": "/api/register/validate-code",
++    "valid": true,
++    "value": "REG001"
++  },
++  {
++    "body": {
++      "code": "ZZZZ99"
++    },
++    "class": "unknown",
++    "expect": {
++      "json": {
++        "valid": false
++      },
++      "status": 200
++    },
++    "field": "code",
++    "id": "validateCode:code:unknown:1",
++    "method": "POST",
++    "omitted": false,
++    "operation": "validateCode",
++    "path": "/api/register/validate-code",
++    "valid": false,
++    "value": "ZZZZ99"
++  },
++  {
++    "body": {
++      "code": "   "
++    },
++    "class": "blank",
++    "expect": {
++      "json": {
++        "valid": false
++      },
++      "status": 200
++    },
++    "field": "code",
++    "id": "validateCode:code:blank:2",
++    "method": "POST",
++    "omitted": false,
++    "operation": "validateCode",
++    "path": "/api/register/validate-code",
++    "valid": false,
++    "value": "   "
++  },
++  {
++    "body": {},
++    "class": "missing_required",
++    "expect": {
++      "json": {
++        "valid": false
++      },
++      "status": 200
++    },
++    "field": "code",
++    "id": "validateCode:code:missing_required:3",
++    "method": "POST",
++    "omitted": true,
++    "operation": "validateCode",
++    "path": "/api/register/validate-code",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": 12345
++    },
++    "class": "wrong_type_integer",
++    "expect": {
++      "json": {
++        "valid": false
++      },
++      "status": 200
++    },
++    "field": "code",
++    "id": "validateCode:code:wrong_type_integer:4",
++    "method": "POST",
++    "omitted": false,
++    "operation": "validateCode",
++    "path": "/api/register/validate-code",
++    "valid": false,
++    "value": 12345
++  },
++  {
++    "body": {
++      "code": null
++    },
++    "class": "wrong_type_null",
++    "expect": {
++      "json": {
++        "valid": false
++      },
++      "status": 200
++    },
++    "field": "code",
++    "id": "validateCode:code:wrong_type_null:5",
++    "method": "POST",
++    "omitted": false,
++    "operation": "validateCode",
++    "path": "/api/register/validate-code",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "valid_known",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "code",
++    "id": "registerTeam:code:valid_known:0",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "REG001"
++  },
++  {
++    "body": {
++      "code": "ZZZZ99",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "unknown",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "code",
++    "id": "registerTeam:code:unknown:1",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "ZZZZ99"
++  },
++  {
++    "body": {
++      "code": "   ",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "blank",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "code",
++    "id": "registerTeam:code:blank:2",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "   "
++  },
++  {
++    "body": {
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "missing_required",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "code",
++    "id": "registerTeam:code:missing_required:3",
++    "method": "POST",
++    "omitted": true,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": 12345,
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_integer",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "code",
++    "id": "registerTeam:code:wrong_type_integer:4",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": 12345
++  },
++  {
++    "body": {
++      "code": null,
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_null",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "code",
++    "id": "registerTeam:code:wrong_type_null:5",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "AAAAAAAAAA"
++    },
++    "class": "valid_mid",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:valid_mid:6",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": ""
++    },
++    "class": "bva_below_min",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:bva_below_min:7",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": ""
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "A"
++    },
++    "class": "bva_at_min",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:bva_at_min:8",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "A"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "AA"
++    },
++    "class": "bva_above_min",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:bva_above_min:9",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "AAAAAAAAAAAAAAAAAAA"
++    },
++    "class": "bva_below_max",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:bva_below_max:10",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "AAAAAAAAAAAAAAAAAAAA"
++    },
++    "class": "bva_at_max",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:bva_at_max:11",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "AAAAAAAAAAAAAAAAAAAAA"
++    },
++    "class": "bva_above_max",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:bva_above_max:12",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "AAAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "   "
++    },
++    "class": "blank",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:blank:13",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "   "
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob"
++    },
++    "class": "missing_required",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:missing_required:14",
++    "method": "POST",
++    "omitted": true,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": 12345
++    },
++    "class": "wrong_type_integer",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:wrong_type_integer:15",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": 12345
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": null
++    },
++    "class": "wrong_type_null",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "team_name",
++    "id": "registerTeam:team_name:wrong_type_null:16",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "AAAAAAAAAAAAAAA",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "valid_mid",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:valid_mid:17",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "bva_below_min",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:bva_below_min:18",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": ""
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "A",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "bva_at_min",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:bva_at_min:19",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "A"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "AA",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "bva_above_min",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:bva_above_min:20",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "bva_below_max",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:bva_below_max:21",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "bva_at_max",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:bva_at_max:22",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "bva_above_max",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:bva_above_max:23",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "   ",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "blank",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:blank:24",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "   "
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "missing_required",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:missing_required:25",
++    "method": "POST",
++    "omitted": true,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": 12345,
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_integer",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:wrong_type_integer:26",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": 12345
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": null,
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_null",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player1",
++    "id": "registerTeam:player1:wrong_type_null:27",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "AAAAAAAAAAAAAAA",
++      "team_name": "Alpha"
++    },
++    "class": "valid_mid",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:valid_mid:28",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "",
++      "team_name": "Alpha"
++    },
++    "class": "bva_below_min",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:bva_below_min:29",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": ""
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "A",
++      "team_name": "Alpha"
++    },
++    "class": "bva_at_min",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:bva_at_min:30",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "A"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "AA",
++      "team_name": "Alpha"
++    },
++    "class": "bva_above_min",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:bva_above_min:31",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
++      "team_name": "Alpha"
++    },
++    "class": "bva_below_max",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:bva_below_max:32",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
++      "team_name": "Alpha"
++    },
++    "class": "bva_at_max",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:bva_at_max:33",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
++      "team_name": "Alpha"
++    },
++    "class": "bva_above_max",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:bva_above_max:34",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "   ",
++      "team_name": "Alpha"
++    },
++    "class": "blank",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:blank:35",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": "   "
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "team_name": "Alpha"
++    },
++    "class": "missing_required",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:missing_required:36",
++    "method": "POST",
++    "omitted": true,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": 12345,
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_integer",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:wrong_type_integer:37",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": 12345
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": null,
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_null",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "player2",
++    "id": "registerTeam:player2:wrong_type_null:38",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "email": "a@b.co",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "valid",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "email",
++    "id": "registerTeam:email:valid:39",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "a@b.co"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "email": "",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "empty_optional",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "email",
++    "id": "registerTeam:email:empty_optional:40",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": ""
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "optional_omitted",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "email",
++    "id": "registerTeam:email:optional_omitted:41",
++    "method": "POST",
++    "omitted": true,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "email": 12345,
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_integer",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "email",
++    "id": "registerTeam:email:wrong_type_integer:42",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": 12345
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "email": null,
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_null",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "email",
++    "id": "registerTeam:email:wrong_type_null:43",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "phone": "0300123456",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "valid",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "phone",
++    "id": "registerTeam:phone:valid:44",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": "0300123456"
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "phone": "",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "empty_optional",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "phone",
++    "id": "registerTeam:phone:empty_optional:45",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": ""
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "optional_omitted",
++    "expect": {
++      "json": {
++        "success": true
++      },
++      "status": 200
++    },
++    "field": "phone",
++    "id": "registerTeam:phone:optional_omitted:46",
++    "method": "POST",
++    "omitted": true,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": true,
++    "value": null
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "phone": 12345,
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_integer",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "phone",
++    "id": "registerTeam:phone:wrong_type_integer:47",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": 12345
++  },
++  {
++    "body": {
++      "code": "REG001",
++      "phone": null,
++      "player1": "Ann",
++      "player2": "Bob",
++      "team_name": "Alpha"
++    },
++    "class": "wrong_type_null",
++    "expect": {
++      "json": {
++        "success": false
++      },
++      "status": 400
++    },
++    "field": "phone",
++    "id": "registerTeam:phone:wrong_type_null:48",
++    "method": "POST",
++    "omitted": false,
++    "operation": "registerTeam",
++    "path": "/api/register/team",
++    "valid": false,
++    "value": null
++  }
++]
+diff --git a/tests/team/team_support.py b/tests/team/team_support.py
+new file mode 100644
+index 0000000..7ec0ec7
+--- /dev/null
++++ b/tests/team/team_support.py
+@@ -0,0 +1,33 @@
++"""Small helpers shared by the tests in tests/team (kept out of conftest.py on purpose:
++conftest.py belongs to upstream, this file belongs to the team)."""
++from app import db
++from app.models import Team, Tournament
++
++CODE = "REG001"
++
++
++def make_tournament(**fields):
++    values = dict(name="Reg Test", registration_code=CODE, max_teams=16)
++    values.update(fields)
++    t = Tournament(**values)
++    db.session.add(t)
++    db.session.commit()
++    return t
++
++
++def make_team(tournament, name="Alpha", confirmed=True, checked_in=False):
++    team = Team(name=name, player1="Ann", player2="Bob", tournament_id=tournament.id,
++                is_confirmed=confirmed, is_checked_in=checked_in)
++    db.session.add(team)
++    db.session.commit()
++    return team
++
++
++def names(tournament):
++    return sorted(t.name for t in Team.query.filter_by(tournament_id=tournament.id).all())
++
++
++def reload_team(team_id):
++    """Fresh read of a team row (None if it was deleted)."""
++    db.session.expire_all()
++    return db.session.get(Team, team_id)
+diff --git a/tests/team/test_admin_registration.py b/tests/team/test_admin_registration.py
+new file mode 100644
+index 0000000..45541f3
+--- /dev/null
++++ b/tests/team/test_admin_registration.py
+@@ -0,0 +1,280 @@
++"""Tests for workflow W2, admin registration management (app/blueprints/admin.py).
++
++Covers FR6 to FR12 and business rules 1 and 3 of docs/test-basis.md. Each test asserts the
++HTTP result, the JSON the admin UI receives and the database state afterwards.
++Status: written against the source (READ). Run on your machine before citing any result.
++
++Known defects are documented with strict xfail so the suite stays green and flips to a
++failure (XPASS) the day the defect is fixed:
++  DR-05 admin add truncates names to 8 and 10 characters
++  DR-07 admin add ignores closed or started tournaments
++  DR-02 a missing team or tournament returns 500 instead of 404
++"""
++import pytest
++
++from app import db
++from app.models import Team, Tournament
++from team_support import make_team, make_tournament, names, reload_team
++
++GOOD = {"name": "Robots", "player1": "Ann", "player2": "Bob"}
++
++
++def add(client, tid, **body):
++    data = dict(GOOD)
++    data.update(body)
++    return client.post(f"/admin/tournament/{tid}/team/add", json=data)
++
++
++# ---- FR6 / roles: anonymous visitor is sent to the login page ---------------------------
++
++@pytest.mark.parametrize("method,path", [
++    ("get", "/admin/tournament/{t}/registrations"),
++    ("post", "/admin/tournament/{t}/team/{m}/confirm"),
++    ("post", "/admin/tournament/{t}/team/{m}/reject"),
++    ("post", "/admin/tournament/{t}/team/{m}/checkin"),
++    ("post", "/admin/tournament/{t}/team/add"),
++    ("post", "/admin/tournament/{t}/registration/toggle"),
++])
++def test_anonymous_is_redirected_to_login_and_nothing_changes(app, client, method, path):
++    t = make_tournament()
++    team = make_team(t, confirmed=False)
++    r = getattr(client, method)(path.format(t=t.id, m=team.id))
++    assert r.status_code == 302 and "/login" in r.headers["Location"]
++    assert "next=" in r.headers["Location"]
++    assert reload_team(team.id).is_confirmed is False
++    assert names(t) == ["Alpha"]
++    assert db.session.get(Tournament, t.id).registration_open is True
++
++
++# ---- registrations page -----------------------------------------------------------------
++
++def test_registrations_page_lists_pending_and_confirmed_teams(app, authenticated_client):
++    t = make_tournament(name="Page Cup")
++    make_team(t, "Confirmed Co", confirmed=True)
++    make_team(t, "Pending Co", confirmed=False)
++    r = authenticated_client.get(f"/admin/tournament/{t.id}/registrations")
++    page = r.get_data(as_text=True)
++    assert r.status_code == 200
++    assert "Page Cup" in page and "Confirmed Co" in page and "Pending Co" in page
++
++
++@pytest.mark.xfail(strict=True, reason="DR-02: the 404 page calls url_for('ui.index'), so a missing tournament is not a clean 404")
++def test_registrations_page_for_missing_tournament_is_404(app, authenticated_client):
++    assert authenticated_client.get("/admin/tournament/9999/registrations").status_code == 404
++
++
++# ---- FR7: confirm (state change pending -> confirmed) -----------------------------------
++
++def test_confirm_pending_team(app, authenticated_client):
++    t = make_tournament()
++    team = make_team(t, confirmed=False)
++    r = authenticated_client.post(f"/admin/tournament/{t.id}/team/{team.id}/confirm")
++    body = r.get_json()
++    assert r.status_code == 200 and body["success"] is True
++    assert body["team"]["id"] == team.id and body["team"]["is_confirmed"] is True
++    assert reload_team(team.id).is_confirmed is True
++
++
++def test_confirm_is_idempotent_on_a_confirmed_team(app, authenticated_client):
++    t = make_tournament()
++    team = make_team(t, confirmed=True)
++    r = authenticated_client.post(f"/admin/tournament/{t.id}/team/{team.id}/confirm")
++    assert r.status_code == 200 and r.get_json()["success"] is True
++    assert reload_team(team.id).is_confirmed is True
++    assert names(t) == ["Alpha"]  # no duplicate row
++
++
++def test_confirm_team_from_another_tournament_is_refused(app, authenticated_client):
++    t1 = make_tournament(registration_code="AAA111")
++    t2 = make_tournament(registration_code="BBB222")
++    team = make_team(t2, confirmed=False)
++    r = authenticated_client.post(f"/admin/tournament/{t1.id}/team/{team.id}/confirm")
++    assert r.status_code == 400
++    assert r.get_json() == {"success": False, "error": "Team not in this tournament"}
++    assert reload_team(team.id).is_confirmed is False
++
++
++@pytest.mark.xfail(strict=True, reason="DR-02: get_or_404 renders the broken 404 page")
++def test_confirm_missing_team_is_404(app, authenticated_client):
++    t = make_tournament()
++    assert authenticated_client.post(f"/admin/tournament/{t.id}/team/9999/confirm").status_code == 404
++
++
++# ---- FR8: reject deletes the row and frees the slot -------------------------------------
++
++def test_reject_deletes_team_and_frees_the_slot(app, authenticated_client):
++    t = make_tournament(max_teams=1)
++    team = make_team(t, confirmed=False)
++    assert t.can_register() == (False, "Tournament is full")
++    r = authenticated_client.post(f"/admin/tournament/{t.id}/team/{team.id}/reject")
++    assert r.status_code == 200 and r.get_json() == {"success": True}
++    assert reload_team(team.id) is None
++    assert t.get_registered_team_count() == 0
++    assert t.can_register() == (True, "OK")  # shared record read back: capacity is free again
++
++
++def test_reject_works_on_a_confirmed_team_too(app, authenticated_client):
++    t = make_tournament()
++    team = make_team(t, confirmed=True)
++    assert authenticated_client.post(f"/admin/tournament/{t.id}/team/{team.id}/reject").status_code == 200
++    assert names(t) == []
++
++
++def test_reject_team_from_another_tournament_is_refused(app, authenticated_client):
++    t1 = make_tournament(registration_code="AAA111")
++    t2 = make_tournament(registration_code="BBB222")
++    team = make_team(t2)
++    r = authenticated_client.post(f"/admin/tournament/{t1.id}/team/{team.id}/reject")
++    assert r.status_code == 400 and r.get_json()["error"] == "Team not in this tournament"
++    assert reload_team(team.id) is not None
++
++
++def test_reject_twice_second_call_cannot_find_the_team(app, authenticated_client):
++    """Repeated request: the first call deletes, the second must not succeed or create rows."""
++    t = make_tournament()
++    team = make_team(t)
++    url = f"/admin/tournament/{t.id}/team/{team.id}/reject"
++    assert authenticated_client.post(url).status_code == 200
++    app.config["PROPAGATE_EXCEPTIONS"] = False  # DR-02 would otherwise raise inside the client
++    assert authenticated_client.post(url).status_code in (404, 500)
++    assert names(t) == []
++
++
++# ---- FR9: check-in is an independent toggle ---------------------------------------------
++
++def test_checkin_toggles_on_then_off(app, authenticated_client):
++    t = make_tournament()
++    team = make_team(t, confirmed=True)
++    url = f"/admin/tournament/{t.id}/team/{team.id}/checkin"
++    r1 = authenticated_client.post(url)
++    assert r1.status_code == 200 and r1.get_json() == {"success": True, "checked_in": True}
++    assert reload_team(team.id).is_checked_in is True
++    r2 = authenticated_client.post(url)
++    assert r2.get_json() == {"success": True, "checked_in": False}
++    assert reload_team(team.id).is_checked_in is False
++
++
++def test_checkin_does_not_change_confirmation(app, authenticated_client):
++    """Documents N3: check-in works on a pending team and leaves is_confirmed alone."""
++    t = make_tournament()
++    team = make_team(t, confirmed=False)
++    authenticated_client.post(f"/admin/tournament/{t.id}/team/{team.id}/checkin")
++    row = reload_team(team.id)
++    assert row.is_checked_in is True and row.is_confirmed is False
++
++
++def test_checkin_team_from_another_tournament_is_refused(app, authenticated_client):
++    t1 = make_tournament(registration_code="AAA111")
++    t2 = make_tournament(registration_code="BBB222")
++    team = make_team(t2)
++    r = authenticated_client.post(f"/admin/tournament/{t1.id}/team/{team.id}/checkin")
++    assert r.status_code == 400 and r.get_json()["success"] is False
++    assert reload_team(team.id).is_checked_in is False
++
++
++# ---- FR10: manual add -------------------------------------------------------------------
++
++def test_manual_add_creates_a_confirmed_team(app, authenticated_client):
++    t = make_tournament()
++    r = add(authenticated_client, t.id)
++    body = r.get_json()
++    assert r.status_code == 200 and body["success"] is True
++    team = Team.query.filter_by(tournament_id=t.id).one()
++    assert (team.name, team.player1, team.player2, team.is_confirmed) == ("Robots", "Ann", "Bob", True)
++    assert body["team"]["id"] == team.id
++
++
++@pytest.mark.parametrize("missing", ["name", "player1", "player2"])
++def test_manual_add_requires_all_three_fields(app, authenticated_client, missing):
++    t = make_tournament()
++    r = add(authenticated_client, t.id, **{missing: "   "})
++    assert r.status_code == 400
++    assert r.get_json() == {"success": False, "error": "All fields are required"}
++    assert names(t) == []
++
++
++def test_manual_add_refuses_duplicate_name_ignoring_case(app, authenticated_client):
++    t = make_tournament()
++    make_team(t, "Robots")
++    r = add(authenticated_client, t.id, name="ROBOTS")
++    assert r.status_code == 400 and "already exists" in r.get_json()["error"]
++    assert names(t) == ["Robots"]
++
++
++def test_manual_add_allows_same_name_in_another_tournament(app, authenticated_client):
++    t1 = make_tournament(registration_code="AAA111")
++    t2 = make_tournament(registration_code="BBB222")
++    make_team(t1, "Robots")
++    assert add(authenticated_client, t2.id).status_code == 200
++    assert names(t2) == ["Robots"]
++
++
++def test_manual_add_refuses_when_full_then_succeeds_after_a_slot_is_freed(app, authenticated_client):
++    t = make_tournament(max_teams=1)
++    first = make_team(t, "First")
++    r = add(authenticated_client, t.id, name="Second")
++    assert r.status_code == 400 and r.get_json()["error"] == "Tournament is full"
++    assert names(t) == ["First"]  # read back after the rejection
++    authenticated_client.post(f"/admin/tournament/{t.id}/team/{first.id}/reject")
++    assert add(authenticated_client, t.id, name="Second").status_code == 200
++    assert names(t) == ["Second"]
++
++
++def test_manual_add_boundary_count_one_below_max_is_accepted(app, authenticated_client):
++    t = make_tournament(max_teams=2)
++    make_team(t, "First")                      # count 1 = max - 1
++    assert add(authenticated_client, t.id, name="Second").status_code == 200
++    assert add(authenticated_client, t.id, name="Third").status_code == 400   # count 2 = max
++    assert t.get_registered_team_count() == 2
++
++
++def test_manual_add_strips_unsafe_characters(app, authenticated_client):
++    t = make_tournament()
++    r = add(authenticated_client, t.id, name="a<b>c")
++    assert r.status_code == 200
++    assert names(t) == ["abc"]  # '<' and '>' are removed by sanitize_team_name
++
++
++@pytest.mark.xfail(strict=True, reason="DR-05: sanitize_team_name cuts names to 8 characters and player names to 10")
++def test_manual_add_keeps_a_20_character_team_name(app, authenticated_client):
++    t = make_tournament()
++    add(authenticated_client, t.id, name="A" * 20, player1="P" * 30)
++    team = Team.query.filter_by(tournament_id=t.id).one()
++    assert len(team.name) == 20 and len(team.player1) == 30
++
++
++def test_manual_add_current_truncation_is_8_and_10_characters(app, authenticated_client):
++    """Pins today's behaviour so a fix of DR-05 is noticed (this test then fails on purpose)."""
++    t = make_tournament()
++    add(authenticated_client, t.id, name="Robotics Club", player1="Bartholomew Jones")
++    team = Team.query.filter_by(tournament_id=t.id).one()
++    assert (team.name, team.player1) == ("Robotics", "Bartholome")
++
++
++@pytest.mark.xfail(strict=True, reason="DR-07: manual add does not call can_register(), so it works when registration is closed")
++def test_manual_add_is_refused_when_registration_is_closed(app, authenticated_client):
++    t = make_tournament(registration_open=False)
++    r = add(authenticated_client, t.id)
++    assert r.status_code == 400 and names(t) == []
++
++
++@pytest.mark.xfail(strict=True, reason="DR-07: manual add ignores tournament status")
++def test_manual_add_is_refused_after_the_tournament_started(app, authenticated_client):
++    t = make_tournament(status="in_progress")
++    r = add(authenticated_client, t.id)
++    assert r.status_code == 400 and names(t) == []
++
++
++# ---- FR12: registration toggle (state change open <-> closed) ---------------------------
++
++def test_toggle_closes_then_reopens_and_public_rule_follows(app, authenticated_client):
++    t = make_tournament()
++    url = f"/admin/tournament/{t.id}/registration/toggle"
++    r1 = authenticated_client.post(url)
++    assert r1.get_json() == {"success": True, "registration_open": False}
++    db.session.expire_all()
++    assert db.session.get(Tournament, t.id).can_register() == (False, "Registration is closed")
++    r2 = authenticated_client.post(url)
++    assert r2.get_json() == {"success": True, "registration_open": True}
++    db.session.expire_all()
++    assert db.session.get(Tournament, t.id).can_register() == (True, "OK")
+diff --git a/tests/team/test_api_generated.py b/tests/team/test_api_generated.py
+new file mode 100644
+index 0000000..4bbc36a
+--- /dev/null
++++ b/tests/team/test_api_generated.py
+@@ -0,0 +1,48 @@
++"""API tests driven by the generator (scripts/testdatagen.py) from docs/api/openapi.yaml.
++
++Every case (EP class or 3-point BVA value, one invalid field at a time) is sent to the real
++endpoint and the status, JSON subset and database postcondition are asserted. If the spec
++changes, the cases change with it and no test code needs editing.
++
++Wrong-type values (integer, null) currently crash the endpoints with 500 (DR-13, unconfirmed):
++those cases are strict xfail, so a fix shows up as XPASS.
++Status: written against the source (READ), generator output RUN. Run before citing results.
++"""
++import sys
++from pathlib import Path
++
++import pytest
++
++ROOT = Path(__file__).resolve().parents[2]
++sys.path.insert(0, str(ROOT / "scripts"))
++import testdatagen  # noqa: E402
++
++from app.models import Team  # noqa: E402
++from team_support import make_tournament  # noqa: E402
++
++SPEC = ROOT / "docs" / "api" / "openapi.yaml"
++CASES = testdatagen.generate(testdatagen.load_spec(SPEC))
++
++
++def _param(case):
++    marks = []
++    if case["class"].split("+")[0].startswith("wrong_type"):
++        marks.append(pytest.mark.xfail(strict=True, reason="DR-13: non-string JSON value crashes .strip() (500)"))
++    return pytest.param(case, id=testdatagen.case_id(case), marks=marks)
++
++
++@pytest.mark.parametrize("case", [_param(c) for c in CASES])
++def test_generated_case(app, client, case):
++    app.config["PROPAGATE_EXCEPTIONS"] = False   # a crash must show as 500, not as an exception
++    t = make_tournament()
++    r = client.post(case["path"], json=case["body"])
++    expect = case["expect"]
++    assert r.status_code == expect["status"], f"{case['field']}={case['value']!r}"
++    data = r.get_json()
++    for key, want in expect["json"].items():
++        assert data[key] == want
++    if case["path"].endswith("/team"):
++        stored = Team.query.filter_by(tournament_id=t.id).count()
++        assert stored == (1 if case["valid"] else 0)   # invalid input must not create a row
++    else:
++        assert Team.query.count() == 0                  # validate-code never writes
+diff --git a/tests/team/test_api_register.py b/tests/team/test_api_register.py
+new file mode 100644
+index 0000000..a3d4eda
+--- /dev/null
++++ b/tests/team/test_api_register.py
+@@ -0,0 +1,203 @@
++"""Hand-written tests for the JSON registration endpoints (app/blueprints/api.py):
++POST /api/register/validate-code and POST /api/register/team.
++
++These cover the business rules that a schema cannot express (rule 2 order of checks, rule 3
++confirmation, duplicates, repeated requests, read-back of the shared count). Input-by-input
++EP and 3-point BVA are in test_api_generated.py, which is driven by docs/api/openapi.yaml.
++Status: written against the source (READ). Run on your machine before citing any result.
++"""
++import pytest
++
++from app import db
++from app.models import Team, Tournament
++from team_support import CODE, make_team, make_tournament, names
++
++VALIDATE = "/api/register/validate-code"
++REGISTER = "/api/register/team"
++
++
++def body(**fields):
++    data = {"code": CODE, "team_name": "Alpha", "player1": "Ann", "player2": "Bob"}
++    data.update(fields)
++    return data
++
++
++# ---- validate-code ----------------------------------------------------------------------
++
++def test_validate_known_code_returns_public_tournament_info(app, client):
++    t = make_tournament(max_teams=4)
++    make_team(t, "One")
++    r = client.post(VALIDATE, json={"code": f"  {CODE.lower()} "})   # trimmed and upper-cased
++    data = r.get_json()
++    assert r.status_code == 200
++    assert data["valid"] is True and data["can_register"] is True and data["message"] == "OK"
++    pub = data["tournament"]
++    assert pub["registered_teams"] == 1 and pub["spots_remaining"] == 3 and pub["max_teams"] == 4
++    assert "registration_code" not in pub   # to_public_dict must not leak the code
++
++
++def test_validate_unknown_code(app, client):
++    r = client.post(VALIDATE, json={"code": "NOPE99"})
++    assert r.status_code == 200
++    assert r.get_json() == {"valid": False, "error": "Invalid tournament code"}
++
++
++def test_validate_missing_code_is_treated_as_unknown(app, client):
++    make_tournament()
++    assert client.post(VALIDATE, json={}).get_json()["valid"] is False
++
++
++@pytest.mark.parametrize("fields,message", [
++    ({"registration_open": False}, "Registration is closed"),
++    ({"status": "in_progress"}, "Tournament has already started"),
++])
++def test_validate_reports_why_registration_is_not_possible(app, client, fields, message):
++    make_tournament(**fields)
++    data = client.post(VALIDATE, json={"code": CODE}).get_json()
++    assert data["valid"] is True and data["can_register"] is False and data["message"] == message
++
++
++def test_validate_reports_full_and_spots_remaining_never_negative(app, client):
++    t = make_tournament(max_teams=1)
++    make_team(t, "One")
++    make_team(t, "Two")          # over capacity, possible through manual add races
++    data = client.post(VALIDATE, json={"code": CODE}).get_json()
++    assert data["can_register"] is False and data["message"] == "Tournament is full"
++    assert data["tournament"]["spots_remaining"] == 0   # max(0, ...) branch
++
++
++# ---- register: success and rule 3 (confirmation) ----------------------------------------
++
++def test_register_success_is_confirmed_by_default(app, client):
++    t = make_tournament()
++    r = client.post(REGISTER, json=body(email="a@b.co", phone="123"))
++    data = r.get_json()
++    assert r.status_code == 200 and data["success"] is True
++    assert data["confirmed"] is True and data["message"] == "Successfully registered"
++    team = Team.query.filter_by(tournament_id=t.id).one()
++    assert (team.name, team.email, team.phone, team.is_confirmed) == ("Alpha", "a@b.co", "123", True)
++    assert team.registration_ip == "127.0.0.1"
++    assert data["team"]["id"] == team.id
++
++
++def test_register_waits_for_admin_when_confirmation_required(app, client):
++    t = make_tournament(require_confirmation=True)
++    data = client.post(REGISTER, json=body()).get_json()
++    assert data["confirmed"] is False and data["message"] == "Awaiting admin confirmation"
++    assert Team.query.filter_by(tournament_id=t.id).one().is_confirmed is False
++
++
++def test_register_blank_optional_fields_are_stored_as_null(app, client):
++    t = make_tournament()
++    client.post(REGISTER, json=body(email="  ", phone=""))
++    team = Team.query.filter_by(tournament_id=t.id).one()
++    assert team.email is None and team.phone is None
++
++
++# ---- register: rejections, each leaves the database unchanged ---------------------------
++
++def test_register_unknown_code(app, client):
++    t = make_tournament()
++    r = client.post(REGISTER, json=body(code="NOPE99"))
++    assert r.status_code == 400 and r.get_json() == {"success": False, "error": "Invalid tournament code"}
++    assert names(t) == []
++
++
++@pytest.mark.parametrize("fields,message", [
++    ({"registration_open": False}, "Registration is closed"),
++    ({"status": "ready"}, "Tournament has already started"),
++    ({"max_teams": 0}, "Tournament is full"),
++])
++def test_register_refused_when_rule_2_fails(app, client, fields, message):
++    t = make_tournament(**fields)
++    r = client.post(REGISTER, json=body())
++    assert r.status_code == 400 and r.get_json()["error"] == message
++    assert names(t) == []
++
++
++def test_rule_2_is_checked_before_field_validation(app, client):
++    """Order of checks: a closed tournament wins over an invalid team name."""
++    make_tournament(registration_open=False)
++    r = client.post(REGISTER, json=body(team_name=""))
++    assert r.get_json()["error"] == "Registration is closed"
++
++
++def test_register_requires_email_only_when_the_tournament_says_so(app, client):
++    t = make_tournament(require_email=True)
++    r = client.post(REGISTER, json=body())
++    assert r.status_code == 400 and r.get_json()["error"] == "Email is required for this tournament"
++    assert names(t) == []
++    assert client.post(REGISTER, json=body(email="a@b.co")).status_code == 200
++
++
++def test_register_duplicate_name_is_refused_and_not_stored_twice(app, client):
++    t = make_tournament()
++    assert client.post(REGISTER, json=body()).status_code == 200
++    r = client.post(REGISTER, json=body())                      # repeated request
++    assert r.status_code == 400 and r.get_json()["error"] == "A team with this name is already registered"
++    assert names(t) == ["Alpha"]
++
++
++def test_register_same_name_in_another_tournament_is_allowed(app, client):
++    t1 = make_tournament(registration_code="AAA111")
++    t2 = make_tournament(registration_code="BBB222")
++    assert client.post(REGISTER, json=body(code="AAA111")).status_code == 200
++    assert client.post(REGISTER, json=body(code="BBB222")).status_code == 200
++    assert names(t1) == names(t2) == ["Alpha"]
++
++
++@pytest.mark.xfail(strict=True, reason="DR-04: duplicate check compares names case-sensitively")
++def test_register_duplicate_name_ignores_case(app, client):
++    t = make_tournament()
++    client.post(REGISTER, json=body(team_name="Alpha"))
++    r = client.post(REGISTER, json=body(team_name="alpha"))
++    assert r.status_code == 400 and names(t) == ["Alpha"]
++
++
++# ---- shared record: count versus max_teams (read back after success and rejection) ------
++
++def test_shared_count_rises_on_success_and_stays_on_rejection(app, client):
++    t = make_tournament(max_teams=2)
++    client.post(REGISTER, json=body(team_name="One"))
++    client.post(REGISTER, json=body(team_name="Two"))
++    assert t.get_registered_team_count() == 2
++    r = client.post(REGISTER, json=body(team_name="Three"))
++    assert r.status_code == 400 and r.get_json()["error"] == "Tournament is full"
++    assert t.get_registered_team_count() == 2
++    pub = client.post(VALIDATE, json={"code": CODE}).get_json()["tournament"]
++    assert pub["registered_teams"] == 2 and pub["spots_remaining"] == 0
++
++
++def test_pending_teams_use_capacity(app, client):
++    """DR-08 / A4: a pending team counts against max_teams."""
++    t = make_tournament(max_teams=1, require_confirmation=True)
++    client.post(REGISTER, json=body(team_name="One"))
++    r = client.post(REGISTER, json=body(team_name="Two"))
++    assert r.status_code == 400 and r.get_json()["error"] == "Tournament is full"
++    assert t.get_confirmed_team_count() == 0 and t.get_registered_team_count() == 1
++
++
++# ---- endpoint weaknesses (reported, not fixed) ------------------------------------------
++
++def test_non_json_request_is_rejected_with_415(app, client):
++    make_tournament()
++    assert client.post(REGISTER, data="code=REG001").status_code == 415
++
++
++def test_malformed_json_is_rejected_with_400(app, client):
++    make_tournament()
++    r = client.post(REGISTER, data="{not json", content_type="application/json")
++    assert r.status_code == 400
++
++
++@pytest.mark.xfail(strict=True, reason="DR-13 (new, unconfirmed): a JSON null body makes data.get raise AttributeError, so the endpoint returns 500 instead of 400")
++@pytest.mark.parametrize("url", [VALIDATE, REGISTER])
++def test_json_null_body_is_a_client_error_not_a_crash(app, client, url):
++    app.config["PROPAGATE_EXCEPTIONS"] = False
++    r = client.post(url, data="null", content_type="application/json")
++    assert 400 <= r.status_code < 500
++
++
++def test_endpoints_accept_post_only(app, client):
++    assert client.get(REGISTER).status_code == 405
++    assert client.get(VALIDATE).status_code == 405
+diff --git a/tests/team/test_mutation_ops.py b/tests/team/test_mutation_ops.py
+new file mode 100644
+index 0000000..6d936c1
+--- /dev/null
++++ b/tests/team/test_mutation_ops.py
+@@ -0,0 +1,87 @@
++"""Tests for the custom mutation operators in scripts/mutate_rules.py (no Flask, no database)."""
++import ast
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++sys.path.insert(0, str(ROOT / "scripts"))
++import mutate_rules as mr  # noqa: E402
++
++SAMPLE = '''
++def can_register(self):
++    """doc"""
++    if not self.open:
++        return False, "closed"
++    if self.status != "registration":
++        return False, "started"
++    if self.get_registered_team_count() >= self.max_teams:
++        return False, "full"
++    return True, "OK"
++
++def make(name, t):
++    if len(name) > 20:
++        return None
++    return Team(name=name, is_confirmed=not t.require_confirmation)
++'''
++
++
++def mutants():
++    tree = ast.parse(SAMPLE)
++    return tree, [s for s in mr.sites(tree, 1, 100)]
++
++
++def apply_to_source(op, pick=0):
++    tree, found = mutants()
++    chosen = [s for s in found if s[0] == op][pick]
++    return ast.unparse(mr.apply(tree, chosen[0], chosen[2], chosen[3]))
++
++
++def test_every_mutant_compiles_and_differs_from_the_original():
++    tree, found = mutants()
++    original = ast.unparse(tree)
++    assert found
++    for op, kind, idx, variant, line, desc in found:
++        text = ast.unparse(mr.apply(tree, op, idx, variant))
++        compile(text, "<mutant>", "exec")
++        assert text != original, (op, desc)
++
++
++def test_docstring_is_not_mutated():
++    _, found = mutants()
++    assert not any(s[0] == "str_mutation" and "doc" in s[5] for s in found)
++
++
++def test_limit_shift_moves_the_length_limit():
++    assert "len(name) > 21" in apply_to_source("limit_shift", 0)
++    assert "len(name) > 19" in apply_to_source("limit_shift", 1)
++
++
++def test_confirmation_flip_removes_the_not():
++    out = apply_to_source("confirmation_flip")
++    assert "is_confirmed=t.require_confirmation" in out
++
++
++def test_capacity_ignore_pending_swaps_the_count_method():
++    out = apply_to_source("capacity_ignore_pending")
++    assert "get_confirmed_team_count()" in out and "get_registered_team_count" not in out
++
++
++def test_check_order_swap_exchanges_neighbouring_guards():
++    out = apply_to_source("check_order_swap", 0)
++    assert out.index("self.status") < out.index("self.open")
++
++
++def test_cmp_boundary_turns_gte_into_gt():
++    outs = [apply_to_source("cmp_boundary", i) for i in range(3)]
++    assert any("get_registered_team_count() > self.max_teams" in o for o in outs)
++
++
++def test_not_removal():
++    out = apply_to_source("not_removal", 0)
++    assert "if self.open:" in out
++
++
++def test_two_custom_operator_kinds_are_reported_as_custom():
++    _, found = mutants()
++    custom = {s[0] for s in found if s[1] == "custom"}
++    assert {"limit_shift", "confirmation_flip", "capacity_ignore_pending", "check_order_swap"} <= custom
+diff --git a/tests/team/test_sanitizers_auth_models.py b/tests/team/test_sanitizers_auth_models.py
+new file mode 100644
+index 0000000..cdfb51b
+--- /dev/null
++++ b/tests/team/test_sanitizers_auth_models.py
+@@ -0,0 +1,118 @@
++"""Unit tests for the remaining in-scope helpers: sanitize_team_name, sanitize_player_name
++(app/utils.py), login_required (app/blueprints/auth.py), Team.to_dict and
++Tournament.to_public_dict (app/models.py).
++Status: written against the source (READ). Run on your machine before citing any result.
++"""
++import pytest
++from flask import Blueprint
++
++from app.blueprints.auth import login_required
++from app.utils import sanitize_player_name, sanitize_team_name
++from team_support import make_team, make_tournament
++
++
++# ---- sanitize_team_name: boundary is 8 characters today (DR-05: intended rule is 20) ----
++
++@pytest.mark.parametrize("raw,expected", [
++    (None, ""),                       # None branch
++    ("", ""),
++    ("   ", ""),
++    ("A" * 7, "A" * 7),               # just below the 8-character cut
++    ("A" * 8, "A" * 8),               # exactly at
++    ("A" * 9, "A" * 8),               # just above is truncated
++    ("  Bot  ", "Bot"),
++    ("a   b", "a b"),                 # runs of spaces collapse
++    ("a<b>c", "abc"),                 # unsafe characters removed
++    ("R&D!", "R&amp;D!"),             # allowed '&' is HTML-escaped afterwards
++    ("it's", "it&#x27;s"),            # apostrophe allowed then escaped
++    (12345, "12345"),                 # non-string input is converted
++])
++def test_sanitize_team_name(raw, expected):
++    assert sanitize_team_name(raw) == expected
++
++
++# ---- sanitize_player_name: boundary is 10 characters today -----------------------------
++
++@pytest.mark.parametrize("raw,expected", [
++    (None, ""),
++    ("", ""),
++    ("B" * 9, "B" * 9),
++    ("B" * 10, "B" * 10),
++    ("B" * 11, "B" * 10),
++    ("Ann   Lee", "Ann Lee"),
++    ("a<b>c", "abc"),
++    ("R&D", "RD"),                    # '&' is NOT allowed in player names (differs from team names)
++    ("o'neil", "oneil"),              # apostrophe not allowed either
++    (987, "987"),
++])
++def test_sanitize_player_name(raw, expected):
++    assert sanitize_player_name(raw) == expected
++
++
++# ---- login_required (rule: role check for W2) -------------------------------------------
++
++def test_login_required_blocks_without_session_and_allows_with_it(app):
++    bp = Blueprint("probe", __name__)
++
++    @bp.route("/probe")
++    @login_required
++    def probe():
++        return "inside"
++
++    app.register_blueprint(bp)
++    client = app.test_client()
++    r = client.get("/probe")
++    assert r.status_code == 302 and "/login?next=" in r.headers["Location"]
++    with client.session_transaction() as sess:
++        sess["admin_id"] = 1
++    r = client.get("/probe")
++    assert r.status_code == 200 and r.get_data(as_text=True) == "inside"
++
++
++def test_login_required_only_looks_for_the_key_not_a_valid_admin(app):
++    """Documents the control: any session with admin_id passes, even for an id that does not exist."""
++    bp = Blueprint("probe2", __name__)
++
++    @bp.route("/probe2")
++    @login_required
++    def probe2():
++        return "inside"
++
++    app.register_blueprint(bp)
++    client = app.test_client()
++    with client.session_transaction() as sess:
++        sess["admin_id"] = 424242
++    assert client.get("/probe2").status_code == 200
++
++
++# ---- models -----------------------------------------------------------------------------
++
++def test_team_to_dict_has_the_documented_keys_and_values(app):
++    t = make_tournament()
++    team = make_team(t, "Alpha", confirmed=False, checked_in=True)
++    d = team.to_dict()
++    assert set(d) == {"id", "name", "player1", "player2", "tournament_id", "is_confirmed",
++                      "is_checked_in", "seed", "registered_at"}
++    assert d["name"] == "Alpha" and d["is_confirmed"] is False and d["is_checked_in"] is True
++    assert d["seed"] is None and d["registered_at"] is not None
++
++
++def test_team_to_dict_registered_at_none_branch(app):
++    from app.models import Team
++    assert Team(name="X", player1="a", player2="b").to_dict()["registered_at"] is None
++
++
++def test_tournament_to_public_dict_hides_the_code_and_counts_teams(app):
++    t = make_tournament(max_teams=3, description="d")
++    make_team(t, "One")
++    make_team(t, "Two", confirmed=False)
++    d = t.to_public_dict()
++    assert "registration_code" not in d and "owner_id" not in d
++    assert d["registered_teams"] == 2 and d["spots_remaining"] == 1 and d["max_teams"] == 3
++    assert d["event_date"] is None and d["location"] is None
++
++
++def test_tournament_to_public_dict_event_date_branch(app):
++    from datetime import datetime
++    t = make_tournament(event_date=datetime(2026, 12, 1, 9, 0))
++    assert t.to_public_dict()["event_date"] == "2026-12-01T09:00:00"
+diff --git a/tests/team/test_testdatagen.py b/tests/team/test_testdatagen.py
+new file mode 100644
+index 0000000..1b949ef
+--- /dev/null
++++ b/tests/team/test_testdatagen.py
+@@ -0,0 +1,84 @@
++"""Tests for the generator itself (no Flask, no database)."""
++import json
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++sys.path.insert(0, str(ROOT / "scripts"))
++import testdatagen as g  # noqa: E402
++
++SPEC_PATH = ROOT / "docs" / "api" / "openapi.yaml"
++GENERATED = ROOT / "tests" / "team" / "generated" / "api_cases.json"
++
++
++def spec_with(**limits):
++    spec = g.load_spec(SPEC_PATH)
++    props = spec["paths"]["/api/register/team"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]
++    props["team_name"].update(limits)
++    return spec
++
++
++def lengths(cases, field, valid=None):
++    return sorted(len(c["value"]) for c in cases
++                  if c["field"] == field and isinstance(c["value"], str)
++                  and c["class"].startswith("bva") and (valid is None or c["valid"] == valid))
++
++
++def test_team_name_bva_is_three_points_around_each_limit():
++    cases = g.generate(g.load_spec(SPEC_PATH))
++    assert lengths(cases, "team_name") == [0, 1, 2, 19, 20, 21]
++    assert lengths(cases, "team_name", valid=False) == [0, 21]
++    assert lengths(cases, "player1") == [0, 1, 2, 29, 30, 31]
++
++
++def test_one_invalid_field_per_case():
++    for c in g.generate(g.load_spec(SPEC_PATH)):
++        if c["operation"] == "registerTeam" and c["field"] != "code":
++            for other in ("code", "team_name", "player1", "player2"):
++                if other != c["field"]:
++                    assert c["body"][other] == g.load_spec(SPEC_PATH)["paths"]["/api/register/team"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"][other]["example"]
++
++
++def test_required_missing_and_wrong_types_present():
++    cases = g.generate(g.load_spec(SPEC_PATH))
++    classes = {(c["field"], c["class"].split("+")[0]) for c in cases if c["operation"] == "registerTeam"}
++    assert ("team_name", "missing_required") in classes
++    assert ("email", "optional_omitted") in classes
++    assert ("team_name", "wrong_type_integer") in classes and ("team_name", "wrong_type_null") in classes
++    assert ("team_name", "blank") in classes
++
++
++def test_changing_a_constraint_changes_the_cases():
++    old = g.generate(g.load_spec(SPEC_PATH))
++    new = g.generate(spec_with(maxLength=10))
++    assert lengths(new, "team_name") == [0, 1, 2, 9, 10, 11]
++    lines = g.diff(old, new)
++    assert any(l.startswith("+ registerTeam.team_name") and "len=11" in l for l in lines)
++    assert any(l.startswith("- registerTeam.team_name") and "len=21" in l for l in lines)
++    # 19 and 20 characters were valid values before and are now removed or invalid
++    assert any("len=19" in l and l.startswith("-") for l in lines)
++
++
++def test_raising_the_minimum_moves_the_lower_boundary():
++    new = g.generate(spec_with(minLength=3))
++    assert lengths(new, "team_name") == [2, 3, 4, 19, 20, 21]
++    assert lengths(new, "team_name", valid=False) == [2, 21]
++
++
++def test_integer_and_enum_rules():
++    spec = {"paths": {"/x": {"post": {"operationId": "x", "x-expect": {"valid": {"status": 200}, "invalid": {"status": 400}},
++            "requestBody": {"content": {"application/json": {"schema": {
++                "required": ["n", "m"], "properties": {
++                    "n": {"type": "integer", "minimum": 2, "maximum": 8, "example": 5},
++                    "m": {"type": "string", "enum": ["a", "b"], "example": "a"}}}}}}}}}}
++    cases = g.generate(spec)
++    n = {c["value"]: c["valid"] for c in cases if c["field"] == "n" and isinstance(c["value"], int)}
++    assert n == {1: False, 2: True, 3: True, 5: True, 7: True, 8: True, 9: False}
++    m = {c["value"]: c["valid"] for c in cases if c["field"] == "m" and isinstance(c["value"], str)}
++    assert m == {"a": True, "b": True, "not-in-enum": False}
++
++
++def test_committed_generated_file_matches_the_spec():
++    """Fails when someone edits the spec but forgets to regenerate (the viva live task)."""
++    fresh = json.loads(json.dumps(g.generate(g.load_spec(SPEC_PATH)), sort_keys=True))
++    assert fresh == json.loads(GENERATED.read_text(encoding="utf-8"))

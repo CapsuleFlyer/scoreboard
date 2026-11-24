@@ -4,6 +4,9 @@ coverage.py reports per file, but our scope is specific functions inside larger 
 (docs/test-basis.md section 3). This script reads coverage.json and counts only the
 line ranges listed in SCOPE below.
 
+Gate use (CI): --min-statements 90 --min-branches 85 exits 1 only when a percentage is below
+its minimum. Without --min-* flags any uncovered line fails (the 100 % target).
+
 Usage (from the repo root):
     python -m pytest tests/team --cov --cov-report=json
     python scripts/scoped_coverage.py            # prints the table, exit code 1 if below 100%
@@ -49,8 +52,13 @@ def in_ranges(line, ranges):
     return any(a <= line <= b for a, b, _ in ranges)
 
 
+def _arg(name):
+    return float(sys.argv[sys.argv.index(name) + 1]) if name in sys.argv else None
+
+
 def main():
     show_list = "--list" in sys.argv
+    min_s, min_b = _arg("--min-statements"), _arg("--min-branches")
     if not REPORT.exists():
         print("coverage.json not found. Run: python -m pytest tests/team --cov --cov-report=json")
         return 2
@@ -82,6 +90,10 @@ def main():
     if show_list:
         for path, kind, what in uncovered:
             print(f"  uncovered {kind}: {path}:{what}")
+    if min_s is not None or min_b is not None:
+        ok = pct_s >= (min_s or 0) and pct_b >= (min_b or 0)
+        print(f"Gate: statements >= {min_s}%, branches >= {min_b}% -> {'PASS' if ok else 'FAIL'}")
+        return 0 if ok else 1
     return 0 if not uncovered else 1
 
 
