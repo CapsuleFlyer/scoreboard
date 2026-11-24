@@ -1,0 +1,1251 @@
+[
+  {
+    "body": {
+      "code": "REG001"
+    },
+    "class": "valid_known",
+    "expect": {
+      "json": {
+        "valid": true
+      },
+      "status": 200
+    },
+    "field": "code",
+    "id": "validateCode:code:valid_known:0",
+    "method": "POST",
+    "omitted": false,
+    "operation": "validateCode",
+    "path": "/api/register/validate-code",
+    "valid": true,
+    "value": "REG001"
+  },
+  {
+    "body": {
+      "code": "ZZZZ99"
+    },
+    "class": "unknown",
+    "expect": {
+      "json": {
+        "valid": false
+      },
+      "status": 200
+    },
+    "field": "code",
+    "id": "validateCode:code:unknown:1",
+    "method": "POST",
+    "omitted": false,
+    "operation": "validateCode",
+    "path": "/api/register/validate-code",
+    "valid": false,
+    "value": "ZZZZ99"
+  },
+  {
+    "body": {
+      "code": "   "
+    },
+    "class": "blank",
+    "expect": {
+      "json": {
+        "valid": false
+      },
+      "status": 200
+    },
+    "field": "code",
+    "id": "validateCode:code:blank:2",
+    "method": "POST",
+    "omitted": false,
+    "operation": "validateCode",
+    "path": "/api/register/validate-code",
+    "valid": false,
+    "value": "   "
+  },
+  {
+    "body": {},
+    "class": "missing_required",
+    "expect": {
+      "json": {
+        "valid": false
+      },
+      "status": 200
+    },
+    "field": "code",
+    "id": "validateCode:code:missing_required:3",
+    "method": "POST",
+    "omitted": true,
+    "operation": "validateCode",
+    "path": "/api/register/validate-code",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": 12345
+    },
+    "class": "wrong_type_integer",
+    "expect": {
+      "json": {
+        "valid": false
+      },
+      "status": 200
+    },
+    "field": "code",
+    "id": "validateCode:code:wrong_type_integer:4",
+    "method": "POST",
+    "omitted": false,
+    "operation": "validateCode",
+    "path": "/api/register/validate-code",
+    "valid": false,
+    "value": 12345
+  },
+  {
+    "body": {
+      "code": null
+    },
+    "class": "wrong_type_null",
+    "expect": {
+      "json": {
+        "valid": false
+      },
+      "status": 200
+    },
+    "field": "code",
+    "id": "validateCode:code:wrong_type_null:5",
+    "method": "POST",
+    "omitted": false,
+    "operation": "validateCode",
+    "path": "/api/register/validate-code",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "valid_known",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "code",
+    "id": "registerTeam:code:valid_known:0",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "REG001"
+  },
+  {
+    "body": {
+      "code": "ZZZZ99",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "unknown",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "code",
+    "id": "registerTeam:code:unknown:1",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "ZZZZ99"
+  },
+  {
+    "body": {
+      "code": "   ",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "blank",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "code",
+    "id": "registerTeam:code:blank:2",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "   "
+  },
+  {
+    "body": {
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "missing_required",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "code",
+    "id": "registerTeam:code:missing_required:3",
+    "method": "POST",
+    "omitted": true,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": 12345,
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_integer",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "code",
+    "id": "registerTeam:code:wrong_type_integer:4",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": 12345
+  },
+  {
+    "body": {
+      "code": null,
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_null",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "code",
+    "id": "registerTeam:code:wrong_type_null:5",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "AAAAAAAAAA"
+    },
+    "class": "valid_mid",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:valid_mid:6",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": ""
+    },
+    "class": "bva_below_min",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:bva_below_min:7",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": ""
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "A"
+    },
+    "class": "bva_at_min",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:bva_at_min:8",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "A"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "AA"
+    },
+    "class": "bva_above_min",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:bva_above_min:9",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "AAAAAAAAAAAAAAAAAAA"
+    },
+    "class": "bva_below_max",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:bva_below_max:10",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "AAAAAAAAAAAAAAAAAAAA"
+    },
+    "class": "bva_at_max",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:bva_at_max:11",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "AAAAAAAAAAAAAAAAAAAAA"
+    },
+    "class": "bva_above_max",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:bva_above_max:12",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "AAAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "   "
+    },
+    "class": "blank",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:blank:13",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "   "
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob"
+    },
+    "class": "missing_required",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:missing_required:14",
+    "method": "POST",
+    "omitted": true,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": 12345
+    },
+    "class": "wrong_type_integer",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:wrong_type_integer:15",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": 12345
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": null
+    },
+    "class": "wrong_type_null",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "team_name",
+    "id": "registerTeam:team_name:wrong_type_null:16",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "AAAAAAAAAAAAAAA",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "valid_mid",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:valid_mid:17",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "bva_below_min",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:bva_below_min:18",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": ""
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "A",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "bva_at_min",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:bva_at_min:19",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "A"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "AA",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "bva_above_min",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:bva_above_min:20",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "bva_below_max",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:bva_below_max:21",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "bva_at_max",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:bva_at_max:22",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "bva_above_max",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:bva_above_max:23",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "   ",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "blank",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:blank:24",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "   "
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "missing_required",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:missing_required:25",
+    "method": "POST",
+    "omitted": true,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": 12345,
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_integer",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:wrong_type_integer:26",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": 12345
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": null,
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_null",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player1",
+    "id": "registerTeam:player1:wrong_type_null:27",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "AAAAAAAAAAAAAAA",
+      "team_name": "Alpha"
+    },
+    "class": "valid_mid",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:valid_mid:28",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "",
+      "team_name": "Alpha"
+    },
+    "class": "bva_below_min",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:bva_below_min:29",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": ""
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "A",
+      "team_name": "Alpha"
+    },
+    "class": "bva_at_min",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:bva_at_min:30",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "A"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "AA",
+      "team_name": "Alpha"
+    },
+    "class": "bva_above_min",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:bva_above_min:31",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "team_name": "Alpha"
+    },
+    "class": "bva_below_max",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:bva_below_max:32",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "team_name": "Alpha"
+    },
+    "class": "bva_at_max",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:bva_at_max:33",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "team_name": "Alpha"
+    },
+    "class": "bva_above_max",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:bva_above_max:34",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "   ",
+      "team_name": "Alpha"
+    },
+    "class": "blank",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:blank:35",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": "   "
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "team_name": "Alpha"
+    },
+    "class": "missing_required",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:missing_required:36",
+    "method": "POST",
+    "omitted": true,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": 12345,
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_integer",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:wrong_type_integer:37",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": 12345
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": null,
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_null",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "player2",
+    "id": "registerTeam:player2:wrong_type_null:38",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "email": "a@b.co",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "valid",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "email",
+    "id": "registerTeam:email:valid:39",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "a@b.co"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "email": "",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "empty_optional",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "email",
+    "id": "registerTeam:email:empty_optional:40",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": ""
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "optional_omitted",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "email",
+    "id": "registerTeam:email:optional_omitted:41",
+    "method": "POST",
+    "omitted": true,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "email": 12345,
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_integer",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "email",
+    "id": "registerTeam:email:wrong_type_integer:42",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": 12345
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "email": null,
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_null",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "email",
+    "id": "registerTeam:email:wrong_type_null:43",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "phone": "0300123456",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "valid",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "phone",
+    "id": "registerTeam:phone:valid:44",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": "0300123456"
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "phone": "",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "empty_optional",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "phone",
+    "id": "registerTeam:phone:empty_optional:45",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": ""
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "optional_omitted",
+    "expect": {
+      "json": {
+        "success": true
+      },
+      "status": 200
+    },
+    "field": "phone",
+    "id": "registerTeam:phone:optional_omitted:46",
+    "method": "POST",
+    "omitted": true,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": true,
+    "value": null
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "phone": 12345,
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_integer",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "phone",
+    "id": "registerTeam:phone:wrong_type_integer:47",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": 12345
+  },
+  {
+    "body": {
+      "code": "REG001",
+      "phone": null,
+      "player1": "Ann",
+      "player2": "Bob",
+      "team_name": "Alpha"
+    },
+    "class": "wrong_type_null",
+    "expect": {
+      "json": {
+        "success": false
+      },
+      "status": 400
+    },
+    "field": "phone",
+    "id": "registerTeam:phone:wrong_type_null:48",
+    "method": "POST",
+    "omitted": false,
+    "operation": "registerTeam",
+    "path": "/api/register/team",
+    "valid": false,
+    "value": null
+  }
+]
