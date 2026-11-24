@@ -45,8 +45,8 @@ jobs:
       - name: Install
         run: python -m pip install -r requirements-dev.txt
       - name: Mutation score gate on the business-rule code
-        # Provisional threshold; justify it from the first full report in docs/ci-gate.md.
-        run: python scripts/mutate_rules.py --only app/models.py:173-191 --only app/blueprints/api.py:579-658 --min-score 70 --out mutation-report.json
+        # 95 % chosen from runs of 86.2 % then 100 %; reasoning in docs/ci-gate.md.
+        run: python scripts/mutate_rules.py --only app/models.py:173-191 --only app/blueprints/api.py:579-658 --min-score 95 --out mutation-report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

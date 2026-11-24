@@ -35,9 +35,10 @@ No survivor is an equivalent mutant: each changes something a client can see (a 
 
 Reading: the 12 surviving string mutants and 3 order mutants were all in the API's rejection paths, where the earlier tests asserted status codes but not the full body. That matters for usability (FR: the error must say what to correct), so the new tests compare whole bodies.
 
-## Second run (do this, then fill in)
+## Second run (RUN on Windows, 2026-11-24)
 Command: `python scripts/mutate_rules.py --only app/models.py:173-191 --only app/blueprints/api.py:579-658 --out mutation-report-2.json`
-Score after: TODO (expected to rise if all 15 are killed; do not write a number until you have run it).
+
+Score 100.0 %: 109 of 109 mutants killed, 0 survived (first run: 86.2 %). The 15 survivors above were killed by the 13 tests in `tests/team/test_api_register_strict.py`; no production code was changed. Limits of this number: it covers only `can_register()` and `api_register_team`, not the whole app, and a high score shows the tests notice these mutations, not that every defect would be found (the operators cannot invent faults they do not model).
 
 ## Threshold for the CI gate
-TODO justify from the second run. The provisional 70 % in `.github/workflows/team-quality-gate.yml` is below the first-run score of 86.2 %, so it would not catch a drop from the current level. Consider setting it just under the score you reach after the second run, and say why in `docs/ci-gate.md`.
+Gate: **95 %** (`--min-score 95` in `.github/workflows/team-quality-gate.yml`), reason in `docs/ci-gate.md`.

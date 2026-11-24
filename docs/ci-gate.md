@@ -5,10 +5,16 @@ Workflow: `.github/workflows/team-quality-gate.yml`, runs on every pull request.
 | Job | What it enforces | Threshold (PROVISIONAL) | Where the number must come from |
 |---|---|---|---|
 | `tests-and-coverage` | all `tests/team` tests pass; scoped coverage of the in-scope code | statements >= 90 %, branches >= 85 % | first measured run on your machine; the justification is yours: say why not 100 % (for example DR-03 makes the deadline branch unreachable through normal flows) |
-| `mutation` | mutation score on `models.py` rule code and the API register code | >= 70 % | first full run of `scripts/mutate_rules.py`; set it just under the score you reach after killing the killable survivors, and justify |
+| `mutation` | mutation score on `models.py` rule code and the API register code | >= 95 % (set 2026-11-24) | runs: 86.2 % before, 100.0 % (109/109) after killing the 15 survivors; reason below |
 | `sonar` | SonarCloud quality gate (waits for the result) | gate defined in SonarCloud | **TODO ask the TA** whether SonarCloud counts as "SonarQube" |
 
 No step uses a switch that hides failures, and every step's exit code decides the job.
+
+## Why the mutation threshold is 95 %
+- Evidence: the first run scored 86.2 % (15 of 109 survived). Every survivor was killable and was killed by new tests, so the second run reached 100.0 % (109/109). 100 % is what the tests achieve now.
+- Why not 100 %: a gate at exactly 100 % would block any pull request that adds a single mutant the tests miss, even for a harmless reason such as a new message string. With 109 mutants, 95 % allows at most 5 survivors (5 survivors = 95.4 %, pass; 6 = 94.5 %, fail). That is small enough to catch a real weakening of the tests and loose enough that one new line does not stop unrelated work.
+- Why not the old 70 %: that is far below the measured 86.2 % even before the tests were improved. A drop from 100 % to 75 % would still have passed, so it would not have protected the business rules.
+- The threshold applies to the 109 mutants of `can_register()` and the API register function. If you widen the scope later, rerun, and re-set it from the new measurement.
 
 ## One-time GitHub setup (cannot be done by a patch)
 1. Repo Settings > Secrets and variables > Actions > new secret `SONAR_TOKEN` (a new token; never paste it in chat or commit it).
