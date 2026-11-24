@@ -52,3 +52,4 @@ htmlcov/
 bracket_test_output.json
 coverage.xml
 .scannerwork/
+coverage.json
