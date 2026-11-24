@@ -1,0 +1,220 @@
+{
+  "total": 109,
+  "killed": 94,
+  "survived": 15,
+  "score": 86.2,
+  "per_operator": {
+    "check_order_swap": {
+      "kind": "custom",
+      "total": 7,
+      "killed": 4
+    },
+    "not_removal": {
+      "kind": "standard",
+      "total": 10,
+      "killed": 10
+    },
+    "cmp_boundary": {
+      "kind": "standard",
+      "total": 6,
+      "killed": 6
+    },
+    "bool_swap": {
+      "kind": "standard",
+      "total": 7,
+      "killed": 7
+    },
+    "str_mutation": {
+      "kind": "standard",
+      "total": 50,
+      "killed": 38
+    },
+    "capacity_ignore_pending": {
+      "kind": "custom",
+      "total": 1,
+      "killed": 1
+    },
+    "confirmation_flip": {
+      "kind": "custom",
+      "total": 2,
+      "killed": 2
+    },
+    "limit_shift": {
+      "kind": "custom",
+      "total": 6,
+      "killed": 6
+    },
+    "int_shift": {
+      "kind": "standard",
+      "total": 20,
+      "killed": 20
+    }
+  },
+  "survivors": [
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "check_order_swap",
+      "kind": "custom",
+      "index": 36,
+      "variant": 12,
+      "line": 618,
+      "description": "swap guards at lines 618 and 621",
+      "id": 17,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "check_order_swap",
+      "kind": "custom",
+      "index": 36,
+      "variant": 13,
+      "line": 621,
+      "description": "swap guards at lines 621 and 624",
+      "id": 18,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "check_order_swap",
+      "kind": "custom",
+      "index": 36,
+      "variant": 14,
+      "line": 624,
+      "description": "swap guards at lines 624 and 627",
+      "id": 19,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 1442,
+      "variant": 0,
+      "line": 648,
+      "description": "text 'team_registered' + XX",
+      "id": 44,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 2211,
+      "variant": 0,
+      "line": 649,
+      "description": "text 'tournament_id' + XX",
+      "id": 70,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 2212,
+      "variant": 0,
+      "line": 650,
+      "description": "text 'team' + XX",
+      "id": 71,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3200,
+      "variant": 0,
+      "line": 616,
+      "description": "text 'success' + XX",
+      "id": 91,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3208,
+      "variant": 0,
+      "line": 619,
+      "description": "text 'error' + XX",
+      "id": 94,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3210,
+      "variant": 0,
+      "line": 619,
+      "description": "text 'Team name is required (ma' + XX",
+      "id": 95,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3215,
+      "variant": 0,
+      "line": 622,
+      "description": "text 'error' + XX",
+      "id": 97,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3217,
+      "variant": 0,
+      "line": 622,
+      "description": "text 'Player 1 name is required' + XX",
+      "id": 98,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3222,
+      "variant": 0,
+      "line": 625,
+      "description": "text 'error' + XX",
+      "id": 100,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3224,
+      "variant": 0,
+      "line": 625,
+      "description": "text 'Player 2 name is required' + XX",
+      "id": 101,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3226,
+      "variant": 0,
+      "line": 628,
+      "description": "text 'success' + XX",
+      "id": 102,
+      "status": "survived"
+    },
+    {
+      "file": "app/blueprints/api.py",
+      "operator": "str_mutation",
+      "kind": "standard",
+      "index": 3235,
+      "variant": 0,
+      "line": 632,
+      "description": "text 'success' + XX",
+      "id": 105,
+      "status": "survived"
+    }
+  ]
+}
