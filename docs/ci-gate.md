@@ -16,6 +16,11 @@ No step uses a switch that hides failures, and every step's exit code decides th
 - Why not the old 70 %: that is far below the measured 86.2 % even before the tests were improved. A drop from 100 % to 75 % would still have passed, so it would not have protected the business rules.
 - The threshold applies to the 109 mutants of `can_register()` and the API register function. If you widen the scope later, rerun, and re-set it from the new measurement.
 
+## When the pipeline runs
+- Every push to a branch with an open pull request starts a run; a newer push cancels the older run of the same branch (`concurrency`).
+- `tests-and-coverage` and `sonar` run on every pull request and on pushes to `main`/`master` (the push run gives SonarCloud its main-branch analysis).
+- `mutation` takes over an hour, so it runs on every non-draft pull request only. Work in progress goes in a draft pull request; "Ready for review" starts the full gate, and merging needs all three checks (a skipped job counts as passed in GitHub's required checks, and a draft cannot be merged). **Confirm with the TA** that this satisfies "GitHub Actions on every pull request".
+
 ## One-time GitHub setup (cannot be done by a patch)
 1. Repo Settings > Secrets and variables > Actions > new secret `SONAR_TOKEN` (a new token; never paste it in chat or commit it).
 2. SonarCloud: keep "Automatic analysis" off.
