@@ -5,6 +5,14 @@ name: team-quality-gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main, master]
+
+# A newer push to the same branch cancels the older, now pointless, run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -35,6 +43,9 @@ jobs:
 
   mutation:
     name: mutation
+    # Runs on every non-draft pull request (the merge candidates). Skipped on draft PRs, which
+    # cannot be merged, and on pushes to the default branch, whose pull request already passed it.
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
