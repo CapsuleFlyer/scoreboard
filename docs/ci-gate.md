@@ -25,3 +25,5 @@ No step uses a switch that hides failures, and every step's exit code decides th
 ## Evidence the brief asks for (you produce it; nothing here is pre-made)
 - **Fix PR (fails before, passes after):** suggested: fix DR-05 (`sanitize_team_name` 8 to 20, `sanitize_player_name` 10 to 30). On the PR branch first commit only the change to `tests/team/test_admin_registration.py` that removes the DR-05 xfail marker (CI fails), then commit the fix (CI passes). Link both runs.
 - **Blocked PR:** open a PR that removes an assertion or changes `>=` to `>` in `can_register`; the mutation or coverage job must fail and the PR must show "merging is blocked". Screenshot the PR and link the run. Do not merge it.
+
+First pipeline run: see the PR.
