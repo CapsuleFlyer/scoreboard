@@ -6,7 +6,7 @@ Workflow: `.github/workflows/team-quality-gate.yml`, runs on every pull request.
 |---|---|---|---|
 | `tests-and-coverage` | all `tests/team` tests pass; scoped coverage of the in-scope code | statements >= 90 %, branches >= 85 % | first measured run on your machine; the justification is yours: say why not 100 % (for example DR-03 makes the deadline branch unreachable through normal flows) |
 | `mutation` | mutation score on `models.py` rule code and the API register code | >= 95 % (set 2026-11-24) | runs: 86.2 % before, 100.0 % (109/109) after killing the 15 survivors; reason below |
-| `sonar` | SonarCloud quality gate (waits for the result) | gate defined in SonarCloud | **TODO ask the TA** whether SonarCloud counts as "SonarQube" |
+| `sonar` | SonarCloud quality gate (waits for the result) | gate defined in SonarCloud | SonarCloud accepted as "SonarQube" by the TA (as reported by the member; TODO: date and keep the reply) |
 
 No step uses a switch that hides failures, and every step's exit code decides the job.
 
