@@ -158,11 +158,50 @@ def enumerate_mutants(targets):
 
 def run_pytest(workdir, timeout, tests):
     try:
-        r = subprocess.run([sys.executable, "-m", "pytest", *tests, "-x", "-q", "-p", "no:cacheprovider",
-                            "--no-header"], cwd=workdir, capture_output=True, text=True, timeout=timeout)
+        root = workdir.resolve()
+        tests_root = (root / "tests").resolve()
+        validated_tests = []
+
+        for test in tests:
+            if not test or test.startswith("-"):
+                return 2, "Invalid test path"
+
+            test_path = (root / test).resolve()
+
+            try:
+                test_path.relative_to(tests_root)
+            except ValueError:
+                return 2, "Test paths must be inside the tests directory"
+
+            if not test_path.exists():
+                return 2, f"Test path does not exist: {test}"
+
+            validated_tests.append(str(test_path.relative_to(root)))
+
+        r = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                *validated_tests,
+                "-x",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "--no-header"
+            ],
+            cwd=workdir,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            shell=False
+        )
+
         return r.returncode, r.stdout[-400:]
+
     except subprocess.TimeoutExpired:
         return -1, "timeout"
+
 
 
 def main(argv=None):
