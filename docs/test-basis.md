@@ -64,7 +64,7 @@ Out of scope (list in the test plan): bracket generation, start tournament, TV d
 - A2: Duplicate names should be case-insensitive (admin add does this; public form does not, see F3).
 - A3: Max 20 characters for team names is the intended rule for public registration (documented only in code and error text).
 - A4 (**corrects the draft**): the cap counting pending teams is not an assumption. `get_registered_team_count()` counts every team row, so it is code behaviour (RUN: with `max_teams=1` and `require_confirmation`, one pending team made the tournament full).
-- A5: "100% coverage of business logic" means logic behind the two workflows. Still to be confirmed with the instructor or TA.
+- A5: "100% coverage of all server-side business logic" means the WHOLE application, not only the two workflows. Confirmed by the TA (as reported by the member; TODO: add the date and keep the written reply as evidence). The scoped report (`scripts/scoped_coverage.py`) stays as a secondary figure; the whole-app figure from `coverage.json` is now the headline. Measured on 2026-11-24 from `tests/team` only: 38 % of statements (712 of 1630).
 
 ## 8. Findings (re-confirmed)
 | # | Finding | Status |

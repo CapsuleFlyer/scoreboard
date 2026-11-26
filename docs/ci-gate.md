@@ -6,7 +6,7 @@ Workflow: `.github/workflows/team-quality-gate.yml`, runs on every pull request.
 |---|---|---|---|
 | `tests-and-coverage` | all `tests/team` tests pass; scoped coverage of the in-scope code | statements >= 90 %, branches >= 85 % | first measured run on your machine; the justification is yours: say why not 100 % (for example DR-03 makes the deadline branch unreachable through normal flows) |
 | `mutation` | mutation score on `models.py` rule code and the API register code | >= 95 % (set 2026-11-24) | runs: 86.2 % before, 100.0 % (109/109) after killing the 15 survivors; reason below |
-| `sonar` | SonarCloud quality gate (waits for the result) | gate defined in SonarCloud | **TODO ask the TA** whether SonarCloud counts as "SonarQube" |
+| `sonar` | SonarCloud quality gate (waits for the result) | gate defined in SonarCloud | SonarCloud accepted as "SonarQube" by the TA (as reported by the member; TODO: date and keep the reply) |
 
 No step uses a switch that hides failures, and every step's exit code decides the job.
 
@@ -15,6 +15,14 @@ No step uses a switch that hides failures, and every step's exit code decides th
 - Why not 100 %: a gate at exactly 100 % would block any pull request that adds a single mutant the tests miss, even for a harmless reason such as a new message string. With 109 mutants, 95 % allows at most 5 survivors (5 survivors = 95.4 %, pass; 6 = 94.5 %, fail). That is small enough to catch a real weakening of the tests and loose enough that one new line does not stop unrelated work.
 - Why not the old 70 %: that is far below the measured 86.2 % even before the tests were improved. A drop from 100 % to 75 % would still have passed, so it would not have protected the business rules.
 - The threshold applies to the 109 mutants of `can_register()` and the API register function. If you widen the scope later, rerun, and re-set it from the new measurement.
+
+## Why mutants run against a subset of the tests
+`scripts/mutate_rules.py` reruns the tests for every mutant. After the whole-app tests were added the full `tests/team` run took about 6 minutes, so 109 mutants would take about 11 hours (a GitHub job is limited to 6 hours). Mutants are therefore tried against the six test files that exercise the rule code (`DEFAULT_TESTS` in the script). A mutant that only a test outside that list would kill counts as survived, so the score can only be equal or lower than a full run. Rerun the score after this change and compare with the 100.0 % of 2026-11-24 before trusting the 95 % threshold.
+
+## When the pipeline runs
+- Every push to a branch with an open pull request starts a run; a newer push cancels the older run of the same branch (`concurrency`).
+- `tests-and-coverage` and `sonar` run on every pull request and on pushes to `main`/`master` (the push run gives SonarCloud its main-branch analysis).
+- `mutation` takes over an hour, so it runs on every non-draft pull request only. Work in progress goes in a draft pull request; "Ready for review" starts the full gate, and merging needs all three checks (a skipped job counts as passed in GitHub's required checks, and a draft cannot be merged). **Confirm with the TA** that this satisfies "GitHub Actions on every pull request".
 
 ## One-time GitHub setup (cannot be done by a patch)
 1. Repo Settings > Secrets and variables > Actions > new secret `SONAR_TOKEN` (a new token; never paste it in chat or commit it).
@@ -25,3 +33,5 @@ No step uses a switch that hides failures, and every step's exit code decides th
 ## Evidence the brief asks for (you produce it; nothing here is pre-made)
 - **Fix PR (fails before, passes after):** suggested: fix DR-05 (`sanitize_team_name` 8 to 20, `sanitize_player_name` 10 to 30). On the PR branch first commit only the change to `tests/team/test_admin_registration.py` that removes the DR-05 xfail marker (CI fails), then commit the fix (CI passes). Link both runs.
 - **Blocked PR:** open a PR that removes an assertion or changes `>=` to `>` in `can_register`; the mutation or coverage job must fail and the PR must show "merging is blocked". Screenshot the PR and link the run. Do not merge it.
+
+First pipeline run: see the PR.
