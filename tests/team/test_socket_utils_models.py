@@ -251,5 +251,10 @@ def test_api_token_validation(app):
     token.is_active = False
     db.session.commit()
     assert APIToken.validate_token(raw) is None
-    assert APIToken.hash_token("a") == APIToken.hash_token("a") != APIToken.hash_token("b")
+    hash_a_first = APIToken.hash_token("a")
+    hash_a_second = APIToken.hash_token("a")
+    hash_b = APIToken.hash_token("b")
+
+    assert hash_a_first == hash_a_second
+    assert hash_a_first != hash_b
     assert APIToken.generate_token() != APIToken.generate_token()
