@@ -257,4 +257,7 @@ def test_api_token_validation(app):
 
     assert hash_a_first == hash_a_second
     assert hash_a_first != hash_b
-    assert APIToken.generate_token() != APIToken.generate_token()
+    token_a = APIToken.generate_token()
+    token_b = APIToken.generate_token()
+
+    assert token_a != token_b
