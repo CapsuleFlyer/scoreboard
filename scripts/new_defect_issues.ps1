@@ -1,5 +1,5 @@
 <#
-Creates GitHub issues for DR-14..DR-19. Run only for defects whose strict xfail test your run
+Creates GitHub issues for DR-14..DR-20. Run only for defects whose strict xfail test your run
 reported as xfailed (see docs/defect-drafts-2.md). Needs `gh` logged in.
   powershell -File scripts/new_defect_issues.ps1 -Ids DR-14,DR-15 -Repo CapsuleFlyer/scoreboard
 #>
@@ -22,6 +22,8 @@ $defects = @{
     body = "Summary: tokens can be created for one tournament (tournament_id) but require_token never compares it with the tournament in the URL.`nSteps: create a token for tournament A, GET /ext/v1/tournament/<B id>.`nExpected: 403. Actual: 200.`nEvidence: test_external_api.py::test_token_scoped_to_one_tournament_cannot_read_another (strict xfail)." }
   "DR-19" = @{ title = "External API answers 500 for a non-numeric score"; sev = "minor"; pri = "P3"; cat = "error-handling"
     body = "Summary: update_match_score calls int() on the submitted value without validation, so a non-numeric score raises ValueError (500).`nSteps: POST /ext/v1/match/<id>/score with {`"team1_score`":`"abc`"}.`nExpected: 400 with an error. Actual: 500.`nEvidence: test_external_api.py::test_update_score_with_a_non_numeric_value_is_a_client_error (strict xfail)." }
+  "DR-20" = @{ title = "Winner team chosen on the display is not stored"; sev = "minor"; pri = "P3"; cat = "state-rules"
+    body = "Summary: set_display_mode assigns state.winner_team_id, but DisplayState has no such column, so the value lives only on the Python object and is lost when the state is reloaded (new request, restart).`nSteps: POST /api/display/mode with {`"mode`":`"winner`",`"winner_team_id`":1}, then GET /api/display/state in a new session.`nExpected: winner_team in the response. Actual: missing.`nEvidence: test_coverage_gaps.py::test_display_mode_winner_team_is_persisted (strict xfail)." }
 }
 
 foreach ($id in $Ids) {

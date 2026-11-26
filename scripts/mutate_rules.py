@@ -42,6 +42,14 @@ DEFAULT_TARGETS = {
     "app/blueprints/register.py": (1, 130),
     "app/blueprints/api.py": (579, 658),
 }
+# Tests that exercise the business-rule code. Running all of tests/team for every mutant became
+# too slow once the whole-app tests were added (about 6 minutes per run), so mutants are tried
+# against these files only. Pass --tests tests/team to use everything.
+DEFAULT_TESTS = [
+    "tests/team/test_can_register.py", "tests/team/test_register_routes.py",
+    "tests/team/test_admin_registration.py", "tests/team/test_api_register.py",
+    "tests/team/test_api_register_strict.py", "tests/team/test_api_generated.py",
+]
 COPY = ["app", "tests", "scripts", "docs/api", "config.py", "run.py", ".coveragerc"]
 
 CMP_SWAP = {ast.Gt: ast.GtE, ast.GtE: ast.Gt, ast.Lt: ast.LtE, ast.LtE: ast.Lt, ast.Eq: ast.NotEq, ast.NotEq: ast.Eq}
@@ -148,9 +156,9 @@ def enumerate_mutants(targets):
     return out
 
 
-def run_pytest(workdir, timeout):
+def run_pytest(workdir, timeout, tests):
     try:
-        r = subprocess.run([sys.executable, "-m", "pytest", "tests/team", "-x", "-q", "-p", "no:cacheprovider",
+        r = subprocess.run([sys.executable, "-m", "pytest", *tests, "-x", "-q", "-p", "no:cacheprovider",
                             "--no-header"], cwd=workdir, capture_output=True, text=True, timeout=timeout)
         return r.returncode, r.stdout[-400:]
     except subprocess.TimeoutExpired:
@@ -164,6 +172,7 @@ def main(argv=None):
     ap.add_argument("--limit", type=int)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--timeout", type=int, default=180)
+    ap.add_argument("--tests", nargs="+", default=DEFAULT_TESTS, help="test files or folders to run per mutant")
     ap.add_argument("--min-score", type=float, default=0.0)
     ap.add_argument("--out", default="mutation-report.json")
     args = ap.parse_args(argv)
@@ -193,7 +202,7 @@ def main(argv=None):
                 dst = tmp / item
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")) if src.is_dir() else shutil.copy2(src, dst)
-        code, tail = run_pytest(tmp, args.timeout * 3)
+        code, tail = run_pytest(tmp, args.timeout * 3, args.tests)
         if code != 0:
             print("The unmutated tests do not pass, so mutation results would be meaningless:\n" + tail)
             return 2
@@ -205,7 +214,7 @@ def main(argv=None):
                 cache[m["file"]] = (ROOT / m["file"]).read_text(encoding="utf-8")
             tree = ast.parse(cache[m["file"]])
             path.write_text(ast.unparse(apply(tree, m["operator"], m["index"], m["variant"])) + "\n", encoding="utf-8")
-            code, tail = run_pytest(tmp, args.timeout)
+            code, tail = run_pytest(tmp, args.timeout, args.tests)
             m["status"] = "survived" if code == 0 else "killed"
             results.append(m)
             path.write_text(cache[m["file"]], encoding="utf-8")
