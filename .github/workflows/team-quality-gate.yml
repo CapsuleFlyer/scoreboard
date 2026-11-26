@@ -5,6 +5,14 @@ name: team-quality-gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main, master]
+
+# A newer push to the same branch cancels the older, now pointless, run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -21,8 +29,8 @@ jobs:
           cache: pip
       - name: Install
         run: python -m pip install -r requirements-dev.txt
-      - name: Team tests with coverage
-        run: python -m pytest tests/team --cov --cov-report=xml --cov-report=json --cov-report=term-missing
+      - name: Full test suite with coverage
+        run: python -m pytest tests/ --cov=app --cov-branch --cov-report=xml --cov-report=json --cov-report=term-missing
       - name: Coverage gate for the in-scope business logic
         # Thresholds are provisional until the first measured run; justify them in docs/ci-gate.md.
         run: python scripts/scoped_coverage.py --min-statements 90 --min-branches 85
@@ -35,6 +43,9 @@ jobs:
 
   mutation:
     name: mutation
+    # Runs on every non-draft pull request (the merge candidates). Skipped on draft PRs, which
+    # cannot be merged, and on pushes to the default branch, whose pull request already passed it.
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
