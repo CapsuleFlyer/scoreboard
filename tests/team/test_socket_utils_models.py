@@ -12,12 +12,24 @@ from team_support import make_tournament
 from team_support_more import make_match, make_teams, make_token, make_tv
 
 
+@pytest.fixture
+def socket_handlers(app):
+    """The tests build a new app (and a new Socket.IO server) every time, but the @socketio.on
+    handlers are only registered when socket_events is first imported, so only the first server
+    would have them. Re-run the decorators against the current server. Production builds one app,
+    so it is not affected."""
+    import importlib
+    from app.blueprints import socket_events
+    importlib.reload(socket_events)
+
+
 def received(sio, name):
     return [e["args"][0] for e in sio.get_received() if e["name"] == name]
 
 
 # ---- socket events ----------------------------------------------------------------------
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_connect_and_disconnect(app, client):
     sio = socketio.test_client(app, flask_test_client=client)
     assert sio.is_connected()
@@ -25,6 +37,7 @@ def test_connect_and_disconnect(app, client):
     assert not sio.is_connected()
 
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_join_tv_refreshes_last_seen_for_a_known_code_only(app, client):
     from datetime import datetime, timedelta
     tv = make_tv("ABC234", last_seen=datetime.utcnow() - timedelta(hours=1))
@@ -38,6 +51,7 @@ def test_join_tv_refreshes_last_seen_for_a_known_code_only(app, client):
     sio.disconnect()
 
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_leave_tv_and_join_tournament(app, client):
     sio = socketio.test_client(app, flask_test_client=client)
     sio.emit("leave_tv", {"code": "abc234"})
@@ -48,6 +62,7 @@ def test_leave_tv_and_join_tournament(app, client):
     sio.disconnect()
 
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_admin_events_are_broadcast_and_anonymous_ones_are_ignored(app, authenticated_client):
     anon_flask = app.test_client()
     admin_io = socketio.test_client(app, flask_test_client=authenticated_client)
@@ -61,6 +76,7 @@ def test_admin_events_are_broadcast_and_anonymous_ones_are_ignored(app, authenti
     assert received(watcher, "start_countdown") == []
 
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_update_score_event_saves_and_broadcasts(app, authenticated_client):
     t = make_tournament()
     a, b = make_teams(t, 2)
@@ -80,6 +96,7 @@ def test_update_score_event_saves_and_broadcasts(app, authenticated_client):
     assert received(watcher, "score_update") == []
 
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_update_score_from_an_anonymous_socket_changes_nothing(app, client):
     t = make_tournament()
     a, b = make_teams(t, 2)
@@ -90,6 +107,7 @@ def test_update_score_from_an_anonymous_socket_changes_nothing(app, client):
     assert m.team1_score == 0
 
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_winner_pending_event(app, authenticated_client):
     admin_io = socketio.test_client(app, flask_test_client=authenticated_client)
     watcher = socketio.test_client(app)
@@ -101,6 +119,7 @@ def test_winner_pending_event(app, authenticated_client):
     assert received(watcher, "winner_pending")[0]["is_overtime"] is True
 
 
+@pytest.mark.usefixtures("socket_handlers")
 def test_tv_command_and_refresh_reach_only_that_tvs_room(app, authenticated_client):
     admin_io = socketio.test_client(app, flask_test_client=authenticated_client)
     tv = socketio.test_client(app)

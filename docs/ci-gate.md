@@ -16,6 +16,9 @@ No step uses a switch that hides failures, and every step's exit code decides th
 - Why not the old 70 %: that is far below the measured 86.2 % even before the tests were improved. A drop from 100 % to 75 % would still have passed, so it would not have protected the business rules.
 - The threshold applies to the 109 mutants of `can_register()` and the API register function. If you widen the scope later, rerun, and re-set it from the new measurement.
 
+## Why mutants run against a subset of the tests
+`scripts/mutate_rules.py` reruns the tests for every mutant. After the whole-app tests were added the full `tests/team` run took about 6 minutes, so 109 mutants would take about 11 hours (a GitHub job is limited to 6 hours). Mutants are therefore tried against the six test files that exercise the rule code (`DEFAULT_TESTS` in the script). A mutant that only a test outside that list would kill counts as survived, so the score can only be equal or lower than a full run. Rerun the score after this change and compare with the 100.0 % of 2026-11-24 before trusting the 95 % threshold.
+
 ## When the pipeline runs
 - Every push to a branch with an open pull request starts a run; a newer push cancels the older run of the same branch (`concurrency`).
 - `tests-and-coverage` and `sonar` run on every pull request and on pushes to `main`/`master` (the push run gives SonarCloud its main-branch analysis).
