@@ -186,7 +186,7 @@ class Tournament(db.Model):
             return False, "Tournament has already started"
         if self.registration_deadline and utc_now() > self.registration_deadline:
             return False, "Registration deadline has passed"
-        if self.get_registered_team_count() > self.max_teams:
+        if self.get_registered_team_count() >= self.max_teams:
             return False, "Tournament is full"
         return True, "OK"
     
