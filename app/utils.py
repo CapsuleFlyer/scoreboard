@@ -36,41 +36,30 @@ def sanitize_text(text, max_length=100):
 
 
 def sanitize_team_name(name):
-    """Sanitize team name - alphanumeric, spaces, and common punctuation only. Max 8 chars."""
+    """Sanitize team name - alphanumeric, spaces, and common punctuation only. Max 20 chars."""
     if name is None:
         return ""
-    
-    name = str(name).strip()[:8]  # Max 8 characters for team names
-    
-    # Allow only safe characters for team names
-    # Alphanumeric, spaces, hyphens, underscores, dots, apostrophes
+
+    name = str(name).strip()[:20]
+
     name = re.sub(r'[^\w\s\-_.\'&!]', '', name, flags=re.UNICODE)
-    
-    # Remove multiple consecutive spaces
     name = re.sub(r'\s+', ' ', name)
-    
-    # HTML escape
     name = html.escape(name, quote=True)
-    
+
     return name
 
 
 def sanitize_player_name(name):
-    """Sanitize player name - more permissive than team names. Max 10 chars."""
+    """Sanitize player name - more permissive than team names. Max 30 chars."""
     if name is None:
         return ""
-    
-    name = str(name).strip()[:10]  # Max 10 characters for player names
-    
-    # Allow alphanumeric, spaces, hyphens, underscores, dots
+
+    name = str(name).strip()[:30]
+
     name = re.sub(r'[^\w\s\-_.]', '', name, flags=re.UNICODE)
-    
-    # Remove multiple consecutive spaces
     name = re.sub(r'\s+', ' ', name)
-    
-    # HTML escape
     name = html.escape(name, quote=True)
-    
+
     return name
 
 
