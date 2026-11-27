@@ -1,0 +1,22 @@
+id,title,severity,priority,category,status
+DR-01,README default login does not work,minor,P2,config-docs,TODO: copy the current status from the GitHub issue
+DR-02,Every 404 returns a 500,major,P2,error-handling,TODO: copy the current status from the GitHub issue
+DR-03,Registration page and API crash once a deadline is set,major,P2,date-time,TODO: copy the current status from the GitHub issue
+DR-04,Duplicate team names are case-sensitive on the public form and API,minor,P3,validation,TODO: copy the current status from the GitHub issue
+DR-05,Admin manual add silently truncates names,major,P2,validation,TODO: copy the current status from the GitHub issue
+DR-06,Form and API disagree on player-name rules,minor,P3,validation,TODO: copy the current status from the GitHub issue
+DR-07,Admin manual add ignores closed or started tournaments,major,P2,state-rules,TODO: copy the current status from the GitHub issue
+DR-08,Pending teams use up capacity but are hidden from the public list,minor,P3,state-rules,TODO: copy the current status from the GitHub issue
+DR-09,"Weak state transitions for confirm, reject and check-in",minor,P3,state-rules,TODO: copy the current status from the GitHub issue
+DR-10,Pinned dependencies have known vulnerabilities,major,P2,dependency,TODO: copy the current status from the GitHub issue
+DR-11,max_teams set to NULL crashes can_register(),minor,P3,validation,TODO: copy the current status from the GitHub issue
+DR-12,Registration API is CSRF-exempt and no rate limit was seen,minor,P3,access-control,TODO: copy the current status from the GitHub issue
+DR-13,Registration API returns 500 for non-string JSON values and a null body,minor,P3,error-handling,TODO: copy the current status from the GitHub issue
+DR-14,Input pages crash with NameError (db not imported),major,P2,error-handling,TODO: copy the current status from the GitHub issue
+DR-15,Custom display or TV message crashes: sanitize_message not imported,major,P2,validation,TODO: copy the current status from the GitHub issue
+DR-16,API tokens with an expiry date crash every request (naive vs aware datetime),major,P2,date-time,TODO: copy the current status from the GitHub issue
+DR-17,Timer and display-mode endpoints change state without login,major,P2,access-control,TODO: copy the current status from the GitHub issue
+DR-18,Tournament-scoped API token can read other tournaments,minor,P3,access-control,TODO: copy the current status from the GitHub issue
+DR-19,External API answers 500 for a non-numeric score,minor,P3,error-handling,TODO: copy the current status from the GitHub issue
+DR-20,Winner team chosen on the display is not stored,minor,P3,state-rules,TODO: copy the current status from the GitHub issue
+DR-21,Registration success message appears on the next page visit,minor,P3,state-rules,TODO: copy the current status from the GitHub issue

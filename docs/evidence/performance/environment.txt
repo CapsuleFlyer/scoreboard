@@ -1,0 +1,7 @@
+date: 2026-11-27 17:21:16
+os: Windows-11-10.0.26300-SP0
+cpu: Intel64 Family 6 Model 140 Stepping 1, GenuineIntel (8 logical cores)
+python: 3.12.10
+server: Werkzeug threaded development server, SQLite file database (fresh for every run)
+k6: k6.EXE v2.4.0 (commit/dd9395906d, go1.26.11, windows/amd64)
+git commit: 3175477bc20d2263bb87c32c2aaf7078c3fbe9d6

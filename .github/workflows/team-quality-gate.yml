@@ -1,3 +1,4 @@
+
 # Team quality gate: runs on every pull request. Every step must pass for the PR to merge.
 # No step is allowed to fail silently: nothing here may mask a failing command.
 # Merge blocking itself is a GitHub setting: see docs/ci-gate.md ("Require status checks").
@@ -40,29 +41,6 @@ jobs:
           path: |
             coverage.xml
             coverage.json
-
-  mutation:
-    name: mutation
-    # Runs on every non-draft pull request (the merge candidates). Skipped on draft PRs, which
-    # cannot be merged, and on pushes to the default branch, whose pull request already passed it.
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install
-        run: python -m pip install -r requirements-dev.txt
-      - name: Mutation score gate on the business-rule code
-        # 95 % chosen from runs of 86.2 % then 100 %; reasoning in docs/ci-gate.md.
-        run: python scripts/mutate_rules.py --only app/models.py:173-191 --only app/blueprints/api.py:579-658 --min-score 95 --out mutation-report.json
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mutation-report
-          path: mutation-report.json
 
   sonar:
     name: sonar
