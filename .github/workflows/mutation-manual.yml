@@ -1,3 +1,4 @@
+
 name: Manual Mutation Testing
 
 on:
@@ -15,13 +16,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install locked dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-          pip install -r requirements.txt
+          python -m pip install --require-hashes --only-binary=:all: -r requirements-dev.lock
 
       - name: Run mutation testing
         run: |
