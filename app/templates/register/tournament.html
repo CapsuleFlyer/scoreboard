@@ -232,7 +232,7 @@
     <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show"
         role="alert">
         {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endfor %}
     {% endif %}
@@ -250,23 +250,23 @@
 
             <div class="row">
                 <div class="col-12 mb-3">
-                    <label class="form-label">Team Name <span class="text-danger">*</span></label>
-                    <input type="text" name="team_name" class="form-control" placeholder="Enter team name"
+                    <label class="form-label" for="team_name">Team Name <span class="text-danger">*</span></label>
+                    <input type="text" id="team_name" name="team_name" class="form-control" aria-describedby="team_name-count" placeholder="Enter team name"
                         maxlength="20" required oninput="updateCharCount(this, 20)">
                     <div class="char-count" id="team_name-count">0/20</div>
                 </div>
 
                 {% if tournament.require_player_names %}
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Player 1 Name <span class="text-danger">*</span></label>
-                    <input type="text" name="player1" class="form-control" placeholder="First player" maxlength="30"
+                    <label class="form-label" for="player1">Player 1 Name <span class="text-danger">*</span></label>
+                    <input type="text" id="player1" name="player1" class="form-control" aria-describedby="player1-count" placeholder="First player" maxlength="30"
                         required oninput="updateCharCount(this, 30)">
                     <div class="char-count" id="player1-count">0/30</div>
                 </div>
 
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Player 2 Name <span class="text-danger">*</span></label>
-                    <input type="text" name="player2" class="form-control" placeholder="Second player" maxlength="30"
+                    <label class="form-label" for="player2">Player 2 Name <span class="text-danger">*</span></label>
+                    <input type="text" id="player2" name="player2" class="form-control" aria-describedby="player2-count" placeholder="Second player" maxlength="30"
                         required oninput="updateCharCount(this, 30)">
                     <div class="char-count" id="player2-count">0/30</div>
                 </div>
@@ -274,8 +274,8 @@
 
                 {% if tournament.require_email %}
                 <div class="col-12 mb-3">
-                    <label class="form-label">Email <span class="text-danger">*</span></label>
-                    <input type="email" name="email" class="form-control" placeholder="contact@example.com" required>
+                    <label class="form-label" for="email">Email <span class="text-danger">*</span></label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="contact@example.com" required>
                 </div>
                 {% endif %}
             </div>
