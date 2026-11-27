@@ -204,3 +204,5 @@ Currently no rate limits. Be reasonable with request frequency.
 ## Real-Time Updates
 
 Score updates and match completions emit Socket.IO events to all connected displays. Your changes will appear on TV screens instantly.
+
+## so true bestie
