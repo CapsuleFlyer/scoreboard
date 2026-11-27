@@ -81,9 +81,14 @@ def main(argv=None):
 
     args = ap.parse_args(argv)
 
+
+    validated_tests = []
+
     for target in args.tests:
         if target not in ALLOWED_TEST_TARGETS:
             ap.error(f"Invalid test target: {target}")
+
+        validated_tests.append(target)
 
     html_path = Path(args.html).resolve()
     evidence_path = (ROOT / "docs" / "evidence").resolve()
@@ -92,17 +97,29 @@ def main(argv=None):
         ap.error("--html must be inside docs/evidence")
 
     cmd = [
-        sys.executable, "-m", "pytest", *args.tests,
-        "--cov", "--cov-branch", "--cov-report=term",
+        sys.executable,
+        "-m",
+        "pytest",
+        *validated_tests,
+        "--cov",
+        "--cov-branch",
+        "--cov-report=term",
         f"--cov-report=html:{html_path}",
         "--cov-report=xml:coverage.xml",
         "--cov-report=json:coverage.json",
-        "-q", "-p", "no:cacheprovider"
+        "-q",
+        "-p",
+        "no:cacheprovider"
     ]
 
     print("running:", " ".join(cmd), "\n")
-    run = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
 
+    run = subprocess.run(
+        cmd,
+        cwd=ROOT,
+        capture_output=True,
+        text=True
+    )
     out = run.stdout + run.stderr
     counts = parse_pytest_summary(out)
     interrupted = "Interrupted" in out or "error" in out.lower().split("short test summary info")[-1][:4000]
