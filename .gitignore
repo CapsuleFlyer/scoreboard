@@ -53,3 +53,5 @@ bracket_test_output.json
 coverage.xml
 .scannerwork/
 coverage.json
+
+lh-headers.json
