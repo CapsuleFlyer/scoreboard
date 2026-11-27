@@ -86,7 +86,7 @@ def main(argv=None):
 
     if html_path != evidence_path and evidence_path not in html_path.parents:
         ap.error("--html must be inside docs/evidence")
-        
+
     cmd = [
         sys.executable,
         "-m",
@@ -135,7 +135,7 @@ def main(argv=None):
     for line in scoped.stdout.splitlines():
         if line.startswith(("In-scope", "file ", "app/")):
             print("  " + line)
-    print(f"\nSUITE ({' '.join(args.tests)}): " + ", ".join(f"{v} {k}" for k, v in counts.items() if v))
+    print("\nSUITE (tests/team): " + ", ".join(f"{v} {k}" for k, v in counts.items() if v))
     if not trusted:
         print("\nUNTRUSTED: the suite is not green or pytest reported errors. Tests that did not run do not "
               "count, so these figures are lower than the suite would reach. Last lines of the output:\n")
