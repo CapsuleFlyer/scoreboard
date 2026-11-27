@@ -19,6 +19,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "evidence" / "performance"
 
+PERF_PORT = 5056
+PERF_BASE_URL = "http://127.0.0.1:5056"
+
 
 def pct(summary_metric):
     """Percentage of true samples of a k6 Rate metric."""
@@ -97,13 +100,13 @@ def environment(k6):
     return "\n".join(lines) + "\n"
 
 
-def wait_for(port, seconds=30):
-    """Wait for the local performance server on a fixed loopback address."""
+def wait_for(seconds=30):
+    """Wait for the performance server on the fixed loopback address."""
     end = time.monotonic() + seconds
 
     while time.monotonic() < end:
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=2):
+            with socket.create_connection(("127.0.0.1", PERF_PORT), timeout=2):
                 return True
         except OSError:
             time.sleep(0.5)
@@ -131,9 +134,6 @@ def validate_arguments(parser, args):
     if not 0 < args.max_fail <= 1:
         parser.error("--max-fail must be greater than 0 and at most 1")
 
-    if not 1024 <= args.port <= 65535:
-        parser.error("--port must be between 1024 and 65535")
-
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
@@ -147,7 +147,6 @@ def main(argv=None):
     parser.add_argument("--measure", type=int, default=60)
     parser.add_argument("--p95", type=int, default=500, help="limit in ms")
     parser.add_argument("--max-fail", type=float, default=0.01, help="limit as a fraction")
-    parser.add_argument("--port", type=int, default=5056)
 
     args = parser.parse_args(argv)
     validate_arguments(parser, args)
@@ -161,7 +160,7 @@ def main(argv=None):
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "environment.txt").write_text(environment(k6), encoding="utf-8")
 
-    base = f"http://127.0.0.1:{args.port}"
+    base = PERF_BASE_URL
     rows = []
 
     for users in args.users:
@@ -169,8 +168,6 @@ def main(argv=None):
             server_command = [
                 sys.executable,
                 "scripts/perf_server.py",
-                "--port",
-                str(args.port),
             ]
 
             server = subprocess.Popen(
@@ -182,24 +179,29 @@ def main(argv=None):
             )
 
             try:
-                if not wait_for(args.port):
+                if not wait_for():
                     print("server did not start")
                     return 2
 
-                summary_file = OUT / f"summary-{users}u-run{run}.json"
+                summary_file = OUT / "summary-current.json"
+
+                if summary_file.exists():
+                    summary_file.unlink()
 
                 k6_command = [
                     k6,
                     "run",
-                    "-e", f"VUS={users}",
-                    "-e", f"BASE_URL={base}",
-                    "-e", f"P95_MS={args.p95}",
-                    "-e", f"MAX_FAIL={args.max_fail}",
-                    "-e", f"WARMUP={args.warmup}s",
-                    "-e", f"MEASURE={args.measure}s",
-                    f"--summary-export={summary_file}",
+                    "--summary-export=docs/evidence/performance/summary-current.json",
                     "scripts/perf_register.js",
                 ]
+
+                k6_environment = os.environ.copy()
+                k6_environment["VUS"] = str(users)
+                k6_environment["BASE_URL"] = PERF_BASE_URL
+                k6_environment["P95_MS"] = str(args.p95)
+                k6_environment["MAX_FAIL"] = str(args.max_fail)
+                k6_environment["WARMUP"] = f"{args.warmup}s"
+                k6_environment["MEASURE"] = f"{args.measure}s"
 
                 print("running:", " ".join(k6_command), flush=True)
 
@@ -210,6 +212,7 @@ def main(argv=None):
                     text=True,
                     shell=False,
                     check=False,
+                    env=k6_environment,
                 )
 
                 output = result.stdout + result.stderr
@@ -217,7 +220,9 @@ def main(argv=None):
                 output_file.write_text(output, encoding="utf-8")
 
                 summary = json.loads(summary_file.read_text(encoding="utf-8"))
-
+                archived_summary = OUT / f"summary-{users}u-run{run}.json"
+                summary_file.replace(archived_summary)
+                
                 row = summarise_run(
                     summary,
                     args.measure,

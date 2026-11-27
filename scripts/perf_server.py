@@ -7,7 +7,6 @@ application's own. Uses the same threaded Werkzeug server as the browser tests (
 numbers therefore describe this development server with SQLite, and the report must say so).
 The database is deleted when the process stops, so every run starts from the same data.
 """
-import argparse
 import logging
 import shutil
 import sys
@@ -25,9 +24,7 @@ from app.models import Tournament  # noqa: E402
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=5056)
-    args = ap.parse_args()
+    port = 5056
     tmp = Path(tempfile.mkdtemp(prefix="perf-server-"))
 
     class Cfg:
@@ -40,8 +37,8 @@ def main():
         db.session.add(Tournament(name="Perf Cup", registration_code="PERF01", max_teams=1_000_000))
         db.session.commit()
     logging.getLogger("werkzeug").setLevel(logging.ERROR)     # request logging would distort the timings
-    server = make_server("127.0.0.1", args.port, app, threaded=True)
-    print(f"READY http://127.0.0.1:{args.port}", flush=True)
+    server = make_server("127.0.0.1", port, app, threaded=True)
+    print(f"READY http://127.0.0.1:{port}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
