@@ -235,7 +235,6 @@ def test_manual_add_strips_unsafe_characters(app, authenticated_client):
     assert names(t) == ["abc"]  # '<' and '>' are removed by sanitize_team_name
 
 
-@pytest.mark.xfail(strict=True, reason="DR-05: sanitize_team_name cuts names to 8 characters and player names to 10")
 def test_manual_add_keeps_a_20_character_team_name(app, authenticated_client):
     t = make_tournament()
     add(authenticated_client, t.id, name="A" * 20, player1="P" * 30)
@@ -243,12 +242,11 @@ def test_manual_add_keeps_a_20_character_team_name(app, authenticated_client):
     assert len(team.name) == 20 and len(team.player1) == 30
 
 
-def test_manual_add_current_truncation_is_8_and_10_characters(app, authenticated_client):
-    """Pins today's behaviour so a fix of DR-05 is noticed (this test then fails on purpose)."""
+def test_manual_add_keeps_names_within_new_limits(app, authenticated_client):
     t = make_tournament()
     add(authenticated_client, t.id, name="Robotics Club", player1="Bartholomew Jones")
     team = Team.query.filter_by(tournament_id=t.id).one()
-    assert (team.name, team.player1) == ("Robotics", "Bartholome")
+    assert (team.name, team.player1) == ("Robotics Club", "Bartholomew Jones")
 
 
 @pytest.mark.xfail(strict=True, reason="DR-07: manual add does not call can_register(), so it works when registration is closed")
