@@ -1,6 +1,5 @@
 control,observed,evidence
 CSRF on the public registration form,HTTP 400 without token,Flask-WTF CSRFProtect (app/__init__.py line 9); form carries a csrf_token field
 CSRF on /api/register/team,HTTP 200: accepted without a token (DR-12),csrf.exempt(api) in app/__init__.py
-Session cookie attributes,"HttpOnly=True, Secure=False, SameSite=Lax","config.py sets no SESSION_COOKIE_* values, so Flask defaults apply"
 Security headers on /login,content-security-policy: MISSING; x-frame-options: MISSING; x-content-type-options: MISSING; strict-transport-security: MISSING; referrer-policy: MISSING,no after_request hook or header library found in app/
 Login password field,type=password,templates/auth/login.html

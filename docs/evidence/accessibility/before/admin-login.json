@@ -13,8 +13,13 @@
     "orientationAngle": 0,
     "orientationType": "landscape-primary"
   },
+<<<<<<< Updated upstream
   "timestamp": "2026-11-27T04:08:25.395Z",
   "url": "http://127.0.0.1:58948/login",
+=======
+  "timestamp": "2026-11-27T05:59:30.508Z",
+  "url": "http://127.0.0.1:61969/login",
+>>>>>>> Stashed changes
   "toolOptions": {
     "resultTypes": [
       "violations"
