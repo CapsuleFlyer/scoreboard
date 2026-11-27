@@ -17,9 +17,9 @@ from team_support import make_team, make_tournament
     (None, ""),                       # None branch
     ("", ""),
     ("   ", ""),
-    ("A" * 7, "A" * 7),               # just below the 8-character cut
-    ("A" * 8, "A" * 8),               # exactly at
-    ("A" * 9, "A" * 8),               # just above is truncated
+    ("A" * 19, "A" * 19),
+    ("A" * 20, "A" * 20),
+    ("A" * 21, "A" * 20),              # just above is truncated
     ("  Bot  ", "Bot"),
     ("a   b", "a b"),                 # runs of spaces collapse
     ("a<b>c", "abc"),                 # unsafe characters removed
@@ -36,9 +36,9 @@ def test_sanitize_team_name(raw, expected):
 @pytest.mark.parametrize("raw,expected", [
     (None, ""),
     ("", ""),
-    ("B" * 9, "B" * 9),
-    ("B" * 10, "B" * 10),
-    ("B" * 11, "B" * 10),
+    ("B" * 29, "B" * 29),
+    ("B" * 30, "B" * 30),
+    ("B" * 31, "B" * 30),
     ("Ann   Lee", "Ann Lee"),
     ("a<b>c", "abc"),
     ("R&D", "RD"),                    # '&' is NOT allowed in player names (differs from team names)
