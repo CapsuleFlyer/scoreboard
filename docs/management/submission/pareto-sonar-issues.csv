@@ -1,0 +1,11 @@
+Type,Rule,Open issue count,Cumulative count,Cumulative percentage
+BUG,Web:InputWithoutLabelCheck,37,37,59.68
+VULNERABILITY,Web:S5725,6,43,69.35
+VULNERABILITY,pythonsecurity:S8707,5,48,77.42
+VULNERABILITY,githubactions:S8541,4,52,83.87
+VULNERABILITY,githubactions:S8544,4,56,90.32
+BUG,python:S930,2,58,93.55
+VULNERABILITY,python:S2068,1,59,95.16
+VULNERABILITY,pythonsecurity:S5145,1,60,96.77
+VULNERABILITY,githubactions:S7637,1,61,98.39
+BUG,python:S1763,1,62,100.00
