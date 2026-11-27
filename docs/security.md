@@ -15,7 +15,7 @@ Visitor: may use W1 only. Admin: W2 plus everything a visitor may do. The record
 
 ## Run (PowerShell)
 ```
-python -m pytest tests/team/e2e/test_security_access.py -v
+python -m pytest tests/team/e2e/test_e2e_security_access.py -v
 ```
 Outputs: `docs/evidence/security/access-matrix.csv` (at least ten rows over two roles, allowed and denied) and `controls.csv` (cookie attributes, CSRF behaviour, header presence).
 
