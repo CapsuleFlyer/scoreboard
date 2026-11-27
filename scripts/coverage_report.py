@@ -62,17 +62,47 @@ def parse_pytest_summary(text):
     return counts
 
 
+
+ALLOWED_TEST_TARGETS = {
+    "tests/team",
+    "tests/team/test_can_register.py",
+    "tests/team/test_register_routes.py",
+    "tests/team/test_admin_registration.py",
+    "tests/team/test_api_register.py",
+    "tests/team/test_api_register_strict.py",
+    "tests/team/test_api_generated.py",
+}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tests", nargs="+", default=["tests/team"])
     ap.add_argument("--html", default="docs/evidence/coverage")
+
     args = ap.parse_args(argv)
 
-    cmd = [sys.executable, "-m", "pytest", *args.tests, "--cov", "--cov-branch", "--cov-report=term",
-           f"--cov-report=html:{args.html}", "--cov-report=xml:coverage.xml", "--cov-report=json:coverage.json",
-           "-q", "-p", "no:cacheprovider"]
+    for target in args.tests:
+        if target not in ALLOWED_TEST_TARGETS:
+            ap.error(f"Invalid test target: {target}")
+
+    html_path = Path(args.html).resolve()
+    evidence_path = (ROOT / "docs" / "evidence").resolve()
+
+    if html_path != evidence_path and evidence_path not in html_path.parents:
+        ap.error("--html must be inside docs/evidence")
+
+    cmd = [
+        sys.executable, "-m", "pytest", *args.tests,
+        "--cov", "--cov-branch", "--cov-report=term",
+        f"--cov-report=html:{html_path}",
+        "--cov-report=xml:coverage.xml",
+        "--cov-report=json:coverage.json",
+        "-q", "-p", "no:cacheprovider"
+    ]
+
     print("running:", " ".join(cmd), "\n")
     run = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+
     out = run.stdout + run.stderr
     counts = parse_pytest_summary(out)
     interrupted = "Interrupted" in out or "error" in out.lower().split("short test summary info")[-1][:4000]
