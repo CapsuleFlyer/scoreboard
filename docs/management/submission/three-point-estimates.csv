@@ -1,0 +1,12 @@
+Work item,Optimistic hours (O),Most likely hours (M),Pessimistic hours (P),PERT expected hours,Standard deviation hours,Owner,Actual hours,Notes
+Test planning and scope,1,1.5,2,1.5,0.1667,TBD,,Planning estimate; confirm against work log
+Test case design and traceability,2,3,4,3,0.3333,TBD,,Planning estimate; confirm against work log
+Automated test execution and analysis,4,6,8,6,0.6667,TBD,,Includes execution/review; actual suite result recorded separately
+Recovery testing and defect analysis,2,3,4,3,0.3333,TBD,,Includes DR-22 documentation
+Performance scripting and formal runs,2,3,4,3,0.3333,TBD,,Includes k6 runs and result review
+Accessibility and dependency-security evidence,2,3,5,3.1667,0.5,TBD,,ZAP passive scan was not completed
+SonarCloud grouping and baseline comparison,1,2,3,2,0.3333,TBD,,Aggregate issue counts; no baseline issue-level snapshot
+Root cause and Pareto analysis,2,3,4,3,0.3333,TBD,,Pareto snapshot based on open Sonar bugs/vulnerabilities
+Weekly reports and completion report,2,3,4,3,0.3333,TBD,,Actual weekly metrics/hours need team records
+Peer review, integration and submission,1,2,3,2,0.3333,TBD,,Final review and packaging
+TOTAL,,,,29.6667,1.6583,,,PERT expected total; not actual effort
