@@ -14,9 +14,9 @@ import { check } from 'k6';
 import { Rate, Counter } from 'k6/metrics';
 
 const BASE = __ENV.BASE_URL || 'http://127.0.0.1:5056';
-const VUS = parseInt(__ENV.VUS || '1');
-const P95_MS = parseInt(__ENV.P95_MS || '500');
-const MAX_FAIL = parseFloat(__ENV.MAX_FAIL || '0.01');
+const VUS = Number.parseInt(__ENV.VUS || '1', 10);
+const P95_MS = Number.parseInt(__ENV.P95_MS || '500', 10);
+const MAX_FAIL = Number.parseFloat(__ENV.MAX_FAIL || '0.01');
 const WARMUP = __ENV.WARMUP || '10s';
 const MEASURE = __ENV.MEASURE || '60s';
 const HEADERS = { headers: { 'Content-Type': 'application/json' } };
