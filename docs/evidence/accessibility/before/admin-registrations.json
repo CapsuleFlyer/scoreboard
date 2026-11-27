@@ -13,8 +13,8 @@
     "orientationAngle": 0,
     "orientationType": "landscape-primary"
   },
-  "timestamp": "2026-11-27T04:02:35.890Z",
-  "url": "http://127.0.0.1:62607/admin/tournament/1/registrations",
+  "timestamp": "2026-11-27T04:08:27.330Z",
+  "url": "http://127.0.0.1:58948/admin/tournament/1/registrations",
   "toolOptions": {
     "resultTypes": [
       "violations"
@@ -2657,7 +2657,7 @@
           "all": [],
           "none": [],
           "impact": "critical",
-          "html": "<input type=\"text\" class=\"form-control small\" value=\"http://127.0.0.1:62607/register/tournament/REG001\" readonly=\"\" id=\"reg-url\">",
+          "html": "<input type=\"text\" class=\"form-control small\" value=\"http://127.0.0.1:58948/register/tournament/REG001\" readonly=\"\" id=\"reg-url\">",
           "target": [
             "#reg-url"
           ],

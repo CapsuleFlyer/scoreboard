@@ -15,11 +15,26 @@ Only tests in `tests/team/` count (upstream tests earn no marks). `.coveragerc` 
 | `blueprints/register.py` | `test_register_routes.py`, `test_can_register.py` |
 | `blueprints/admin.py` | `test_admin_registration.py` (registration routes), `test_admin_management.py` (the rest) |
 | `blueprints/api.py` | `test_api_register*.py`, `test_api_generated.py` (registration), `test_api_match_display.py` (the rest) |
-| `blueprints/external_api.py` | `test_external_api.py` |
+| `blueprints/external_api.py` | `test_team_external_api.py` |
 | `blueprints/auth.py`, `main.py`, `input.py`, `display.py` | `test_auth_input_display.py`, `test_sanitizers_auth_models.py` |
 | `blueprints/socket_events.py` | `test_socket_utils_models.py` |
 | `blueprints/bracket.py` | exercised through `test_admin_management.py` (create and start for all formats) and `test_api_match_display.py` (bracket self-test); gaps TODO after the first run |
 | `models.py`, `utils.py` | `test_socket_utils_models.py`, `test_sanitizers_auth_models.py`, `test_can_register.py` |
+
+## What each coverage number measures (read this before quoting a percentage)
+| Number | Where it comes from | What it covers |
+|---|---|---|
+| WHOLE APP (headline) | pytest-cov `TOTAL`, `coverage.json` totals | every statement and branch of `app/*`: 1822 statements, 516 branches. Same denominator in every run |
+| SCOPED | `scripts/scoped_coverage.py` | only the line ranges in its `SCOPE` table (the registered workflows: 206 statements, 68 branches). It was never the source of the whole-app percentage |
+| SonarCloud coverage | `coverage.xml` uploaded by the CI job | whole project, from `tests/team` only; it can differ slightly from pytest-cov because Sonar counts lines and conditions its own way |
+
+The whole-app figure of 98 % on 2026-11-26 (471 passed, 40 xfailed) and the scoped figure of 100 % are both real and measure different things. A drop in the whole-app figure with the SAME 1822 statements means fewer tests ran, not that the scope changed.
+
+Reproduce with one command (writes the HTML report, `coverage.xml` for Sonar and `coverage.json`, prints whole-app, scoped and suite results, and marks the figures UNTRUSTED if the suite is not green):
+```
+python scripts/coverage_report.py
+```
+Do not run a bare `pytest`: it collects the upstream tests and the browser tests too. Two of our files once reused the file names of upstream tests (`test_external_api.py`, `test_security_access.py`), which makes pytest stop at collection with "import file mismatch" and run nothing. They are now `test_team_external_api.py` and `test_e2e_security_access.py`, and `test_collection_guard.py` fails if a name is ever reused.
 
 ## Results (fill in from YOUR run; do not copy numbers from anywhere else)
 | Date | Statements | Branches | Command output file |
