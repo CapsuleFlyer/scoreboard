@@ -1,4 +1,4 @@
-# Defect drafts DR-14 to DR-20 (whole-app tests)
+# Defect drafts DR-14 to DR-21 (whole-app tests)
 
 Found by reading the source while writing the whole-app tests. Each one is held in a **strict xfail** test, so it is CONFIRMED only when that test is reported as `xfailed` on your machine. If a test reports `XPASS(strict)` / FAILED, my reading was wrong: do not file that defect. Severity and priority are proposals; score them yourself.
 
@@ -12,6 +12,8 @@ Found by reading the source while writing the whole-app tests. Each one is held 
 | DR-19 | Non-numeric score in the external API gives 500 instead of 400 (`int()` ValueError) | `test_external_api.py::test_update_score_with_a_non_numeric_value_is_a_client_error` | minor, P3, cat:error-handling |
 
 | DR-20 | The winner team chosen on the display is not stored (`winner_team_id` is not a DisplayState column), so it is lost when the state is reloaded | `test_coverage_gaps.py::test_display_mode_winner_team_is_persisted` | minor, P3, cat:state-rules |
+
+| DR-21 | The registration success message is queued and shown on the NEXT page visit (the success page does not display it) | `test_uc1_public_registration.py::test_uc1_success_message_does_not_reappear_on_the_next_visit` | minor, P3, cat:state-rules. Seen in the 2026-11-27 browser run: after registering, reopening the tournament page showed "Team ... registered! Awaiting admin confirmation." |
 
 Other observations (not filed, decide yourself): `create_api_token` reads `request.get_json() or request.form`, but Flask answers 415 to a form post before the fallback is reached; `/api/test/generate-brackets` is a test helper shipped in the production blueprint (login required, cleans up after itself, but creates 4 x 5 tournaments with up to 64 teams per call).
 
