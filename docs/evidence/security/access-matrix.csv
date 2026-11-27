@@ -1,7 +1,7 @@
 role,action,expected,observed,evidence
 visitor,GET /register/tournament/REG001,allowed (200),HTTP 200,response status
 visitor,POST /api/register/validate-code,"allowed (200, no token needed)",HTTP 200,CSRF-exempt API blueprint (app/__init__.py line 43)
-visitor,GET /admin/tournament/1/registrations,denied (redirect to /login),HTTP 302 Location /login?next=http://127.0.0.1:59892/admin/tournament/1/registrations,login_required in app/blueprints/auth.py
+visitor,GET /admin/tournament/1/registrations,denied (redirect to /login),HTTP 302 Location /login?next=http://127.0.0.1:64720/admin/tournament/1/registrations,login_required in app/blueprints/auth.py
 visitor,GET /admin/,denied (redirect to /login),HTTP 302,login_required
 visitor,POST .../team/<id>/confirm,denied and team still pending,HTTP 400; team confirmed = False,database read after the request
 visitor,POST .../team/add,denied and no team created,HTTP 400; teams = 0,database read after the request
