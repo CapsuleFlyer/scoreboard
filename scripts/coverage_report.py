@@ -73,34 +73,25 @@ ALLOWED_TEST_TARGETS = {
     "tests/team/test_api_generated.py",
 }
 
-
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--tests", nargs="+", default=["tests/team"])
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--html", default="docs/evidence/coverage")
-
     args = ap.parse_args(argv)
-
-
-    validated_tests = []
-
-    for target in args.tests:
-        if target not in ALLOWED_TEST_TARGETS:
-            ap.error(f"Invalid test target: {target}")
-
-        validated_tests.append(target)
 
     html_path = Path(args.html).resolve()
     evidence_path = (ROOT / "docs" / "evidence").resolve()
 
     if html_path != evidence_path and evidence_path not in html_path.parents:
         ap.error("--html must be inside docs/evidence")
-
+        
     cmd = [
         sys.executable,
         "-m",
         "pytest",
-        *validated_tests,
+        "tests/team",
         "--cov",
         "--cov-branch",
         "--cov-report=term",
